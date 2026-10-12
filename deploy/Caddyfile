@@ -1,0 +1,20 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Un seul serveur : site, fichiers statiques, API et webhooks (MeSomb, KeyPay)
+	reverse_proxy app:8010
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}
+
+# Éditeur Word (profil docker compose « onlyoffice »)
+{$OFFICE_DOMAIN} {
+	reverse_proxy onlyoffice:80
+}

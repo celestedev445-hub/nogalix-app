@@ -1,0 +1,308 @@
+import type { CvData } from "@/lib/cvTypes";
+
+export const emptyCv = (partial?: Partial<CvData>): CvData => ({
+  id: partial?.id ?? crypto.randomUUID(),
+  templateId: partial?.templateId ?? "atlas",
+  title: partial?.title ?? "Nouveau CV",
+  principal: partial?.principal ?? false,
+  editorStatus: partial?.editorStatus ?? "draft",
+  updatedAt: new Date().toISOString(),
+  completion: partial?.completion ?? 8,
+  identity: {
+    firstName: "",
+    lastName: "",
+    title: "",
+    email: "",
+    phone: "",
+    location: "",
+    photo: null,
+    website: "",
+    github: "",
+    ...partial?.identity,
+  },
+  summary: partial?.summary ?? "",
+  experiences: partial?.experiences ?? [],
+  education: partial?.education ?? [],
+  skills: partial?.skills ?? [],
+  languages: partial?.languages ?? [],
+  projects: partial?.projects ?? [],
+  certifications: partial?.certifications ?? [],
+  interests: partial?.interests ?? [],
+  references: partial?.references ?? [],
+  importSource: partial?.importSource,
+});
+
+export const kouameSoftPreview = emptyCv({
+  id: "preview-soft",
+  templateId: "atlas",
+  title: "Soft",
+  identity: {
+    firstName: "Alexandre",
+    lastName: "Kouamé",
+    title: "Développeur Full Stack",
+    email: "alexandre.kouame@mail.com",
+    phone: "+237 6 78 45 22 11",
+    location: "Douala, Cameroun",
+    photo: "/images/templates/kouame-portrait.png",
+    website: "linkedin.com/in/alexkouame",
+    github: "github.com/alexkouame",
+  },
+  summary:
+    "Passionné par le développement web, je conçois des applications modernes, performantes et centrées sur l'utilisateur.",
+  experiences: [
+    {
+      id: "exp-soft-1",
+      title: "Développeur Full Stack",
+      company: "Tech Innov",
+      start: "2023-01",
+      end: "",
+      current: true,
+      bullets: [
+        "Développement d'applications web et mobiles, intégration d'API, optimisation des performances.",
+      ],
+    },
+    {
+      id: "exp-soft-2",
+      title: "Développeur Front-end",
+      company: "Web Agency",
+      start: "2022-01",
+      end: "2023-01",
+      bullets: ["Interfaces modernes et responsives."],
+    },
+    {
+      id: "exp-soft-3",
+      title: "Stagiaire",
+      company: "TechLab",
+      start: "2021-01",
+      end: "2022-01",
+      bullets: ["Participation à des projets web."],
+    },
+  ],
+  education: [
+    {
+      id: "edu-soft-1",
+      diploma: "Master en Informatique",
+      school: "Université de Douala",
+      year: "2021 à 2023",
+    },
+    {
+      id: "edu-soft-2",
+      diploma: "Licence en Informatique",
+      school: "Université de Yaoundé",
+      year: "2018 à 2021",
+    },
+  ],
+  skills: [
+    { id: "sk-js", name: "JavaScript", level: 90 },
+    { id: "sk-ts", name: "TypeScript", level: 85 },
+    { id: "sk-react", name: "React", level: 88 },
+    { id: "sk-next", name: "Next.js", level: 82 },
+    { id: "sk-node", name: "Node.js", level: 80 },
+    { id: "sk-mongo", name: "MongoDB", level: 75 },
+  ],
+  languages: [
+    { id: "lg-fr", name: "Français", level: "Natif" },
+    { id: "lg-en", name: "Anglais", level: "Professionnel" },
+    { id: "lg-es", name: "Espagnol", level: "Intermédiaire" },
+  ],
+});
+
+export const demoCvs: CvData[] = [
+  emptyCv({
+    id: "cv-fullstack",
+    templateId: "atlas",
+    title: "Développeur Full Stack",
+    principal: true,
+    completion: 86,
+    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    identity: {
+      firstName: "Adrien",
+      lastName: "Malo",
+      title: "Développeur Full Stack",
+      email: "adrien.malo@email.com",
+      phone: "+237 6 12 34 56 78",
+      location: "Yaoundé, Cameroun",
+      photo: null,
+      website: "linkedin.com/in/adrienmalo",
+    },
+    summary:
+      "Développeur full stack passionné, je conçois des applications web performantes, accessibles et orientées produit.",
+    experiences: [
+      {
+        id: "exp-1",
+        title: "Développeur Full Stack",
+        company: "Nogalix Technologies",
+        location: "Yaoundé",
+        start: "2023-01",
+        end: "",
+        current: true,
+        bullets: [
+          "Conception d'interfaces React et d'APIs Laravel.",
+          "Mise en place d'un pipeline CI et d'une couverture de tests.",
+          "Accompagnement produit sur les parcours d'onboarding.",
+        ],
+      },
+      {
+        id: "exp-2",
+        title: "Développeur Frontend",
+        company: "Digital Agency",
+        location: "Douala",
+        start: "2021-03",
+        end: "2022-12",
+        bullets: [
+          "Refonte de sites vitrine et dashboards clients.",
+          "Amélioration des Core Web Vitals de 35 %.",
+        ],
+      },
+    ],
+    education: [
+      {
+        id: "edu-1",
+        diploma: "Master Informatique",
+        school: "Université de Yaoundé",
+        year: "2021",
+        details: "Génie logiciel",
+      },
+    ],
+    skills: [
+      { id: "sk-1", name: "JavaScript", level: 90 },
+      { id: "sk-2", name: "React.js", level: 88 },
+      { id: "sk-3", name: "Laravel", level: 80 },
+      { id: "sk-4", name: "TypeScript", level: 82 },
+    ],
+    languages: [
+      { id: "lg-1", name: "Français", level: "Natif" },
+      { id: "lg-2", name: "Anglais", level: "Professionnel" },
+    ],
+    projects: [
+      {
+        id: "pj-1",
+        name: "Plateforme CV",
+        description: "Application de création de CV assistée par l'IA.",
+      },
+    ],
+    certifications: [
+      {
+        id: "cf-1",
+        name: "AWS Cloud Practitioner",
+        issuer: "Amazon",
+        year: "2024",
+      },
+    ],
+  }),
+  emptyCv({
+    id: "cv-chef",
+    templateId: "horizon",
+    title: "Chef de projet Digital",
+    completion: 78,
+    updatedAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+    identity: {
+      firstName: "Adrien",
+      lastName: "Malo",
+      title: "Chef de projet Digital",
+      email: "adrien.malo@email.com",
+      phone: "+237 6 12 34 56 78",
+      location: "Yaoundé, Cameroun",
+    },
+    summary: "Chef de projet digital, j'aligne métier, design et technique.",
+  }),
+  emptyCv({
+    id: "cv-design",
+    templateId: "prisma",
+    title: "Product Designer",
+    completion: 92,
+    updatedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    identity: {
+      firstName: "Adrien",
+      lastName: "Malo",
+      title: "Product Designer",
+      email: "adrien.malo@email.com",
+      phone: "+237 6 12 34 56 78",
+      location: "Yaoundé, Cameroun",
+    },
+    summary: "Designer produit centré sur la clarté et l'impact.",
+  }),
+];
+
+export const demoAnalysis = {
+  score: 85,
+  globalScore: 86,
+  label: "Très bon",
+  categories: [
+    { id: "contenu", label: "Contenu", score: 90 },
+    { id: "structure", label: "Structure", score: 80 },
+    { id: "competences", label: "Compétences", score: 85 },
+    { id: "presentation", label: "Présentation", score: 85 },
+  ],
+  suggestions: [
+    {
+      id: "s1",
+      title: "Ajoutez des réalisations quantifiées",
+      description: "Les recruteurs aiment voir des résultats concrets et mesurables.",
+      impact: "élevé" as const,
+    },
+    {
+      id: "s2",
+      title: "Optimisez vos mots-clés",
+      description: "Intégrez des mots-clés pertinents pour passer les filtres ATS.",
+      impact: "moyen" as const,
+    },
+    {
+      id: "s3",
+      title: "Améliorez votre accroche",
+      description: "Rendez votre résumé plus percutant dès les premières lignes.",
+      impact: "moyen" as const,
+    },
+  ],
+};
+
+export const plans = [
+  {
+    id: "gratuit",
+    name: "Gratuit",
+    tagline: "Pour commencer",
+    priceMonthly: 0,
+    cta: "Commencer",
+    features: [
+      "1 CV",
+      "Modèles standards",
+      "Convertir PDF et Word",
+      "3 essais IA",
+      "Checklist candidature",
+      "Export PDF",
+    ],
+    highlighted: false,
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    tagline: "Pour aller plus loin",
+    priceMonthly: 4900,
+    cta: "Choisir Pro",
+    features: [
+      "CV illimités",
+      "Tous les modèles",
+      "Convertir PDF et Word",
+      "30 actions IA par mois",
+      "Candidature ciblée",
+      "Édition à la voix",
+      "Export PDF et Word",
+    ],
+    highlighted: true,
+  },
+  {
+    id: "premium",
+    name: "Premium",
+    tagline: "Pour se démarquer",
+    priceMonthly: 9900,
+    cta: "Choisir Premium",
+    popular: true,
+    features: [
+      "Tout dans Pro",
+      "IA illimitée",
+      "Offres d'emploi",
+      "Support prioritaire",
+    ],
+    highlighted: false,
+  },
+];

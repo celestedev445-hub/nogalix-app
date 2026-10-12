@@ -1,0 +1,14 @@
+services:
+  onlyoffice-documentserver:
+    image: onlyoffice/documentserver:8.2
+    container_name: nogalix-onlyoffice
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      JWT_ENABLED: "false"
+      # Le serveur Nogalix est joint via une adresse privée (host.docker.internal) :
+      # sans ceci, OnlyOffice refuse de télécharger le document (« Échec du téléchargement »).
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

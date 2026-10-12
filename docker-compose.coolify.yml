@@ -1,0 +1,64 @@
+# Coolify (coolify.avexsolution.com) — TLS et domaine gérés par Coolify, pas par Caddy.
+# Domaine visé : nogalix.avexsolution.com  |  port applicatif : 8010
+#
+# Dans Coolify : nouveau projet Compose, ce fichier, FQDN = nogalix.avexsolution.com
+# Variables : copier deploy/.env.production.example (APP_DOMAIN=nogalix.avexsolution.com)
+name: nogalix
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --default-storage-engine=InnoDB
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-nogalix}
+      MYSQL_USER: ${DB_USERNAME:-nogalix}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requis}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD requis}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+  app:
+    build: .
+    restart: unless-stopped
+    expose:
+      - "8010"
+    env_file: .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DB_HOST: db
+      DB_PORT: 3306
+      RATELIMIT_STORAGE_URI: redis://redis:6379/0
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16,127.0.0.1}
+      APP_INTERNAL_URL: http://app:8010
+    volumes:
+      - backend_storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8010/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+volumes:
+  db_data:
+  backend_storage:

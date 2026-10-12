@@ -1,0 +1,67 @@
+.stack {
+  width: 100%;
+  background: #e8eaef;
+}
+
+.sheetFrame {
+  position: relative;
+  margin: 0 auto;
+  overflow: visible;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  break-after: page;
+  break-inside: avoid;
+  page-break-after: always;
+  page-break-inside: avoid;
+}
+
+.sheetFrame + .sheetFrame {
+  margin-top: 14px;
+}
+
+.background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.text {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-break: auto;
+  tab-size: 4;
+  line-height: 1;
+  cursor: text;
+  transform-origin: 0 0;
+  font-synthesis: weight style;
+  font-kerning: none;
+  font-variant-ligatures: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  caret-color: currentColor;
+  text-decoration-skip-ink: none;
+}
+
+.text[contenteditable="false"] {
+  cursor: default;
+  pointer-events: none;
+}
+
+.text:focus {
+  outline: 1px dashed rgba(29, 78, 216, 0.45);
+  outline-offset: 1px;
+  z-index: 2;
+}

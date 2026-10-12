@@ -1,0 +1,92 @@
+# Déploiement production Nogalix — un seul serveur applicatif (site + API)
+#   cp deploy/.env.production.example .env   (puis remplir les valeurs)
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml exec app python scripts/create_admin.py admin@domaine.com
+name: nogalix
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --default-storage-engine=InnoDB
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-nogalix}
+      MYSQL_USER: ${DB_USERNAME:-nogalix}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requis}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD requis}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+  # Serveur unique : pages du site, fichiers statiques et API /api/*
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DB_HOST: db
+      DB_PORT: 3306
+      RATELIMIT_STORAGE_URI: redis://redis:6379/0
+      # Caddy (réseau Docker) transmet l'IP du visiteur via X-Forwarded-For
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16,127.0.0.1}
+      # Adresse du serveur vue depuis le conteneur OnlyOffice
+      APP_INTERNAL_URL: http://app:8010
+      ONLYOFFICE_INTERNAL_URL: http://onlyoffice
+    volumes:
+      - backend_storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  onlyoffice:
+    image: onlyoffice/documentserver:8.2
+    restart: unless-stopped
+    profiles: ["onlyoffice"]
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-}  # requis avec le profil onlyoffice
+      JWT_HEADER: Authorization
+      # Le serveur Nogalix (http://app:8010) a une adresse privée : à autoriser pour le téléchargement des documents.
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN requis}
+      OFFICE_DOMAIN: ${OFFICE_DOMAIN:-office.localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  db_data:
+  backend_storage:
+  onlyoffice_data:
+  caddy_data:
+  caddy_config:

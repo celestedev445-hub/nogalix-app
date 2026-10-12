@@ -1,0 +1,74 @@
+.stack {
+  width: 100%;
+  background: #fff;
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  background: #fff;
+  overflow: visible;
+  break-after: page;
+  break-inside: avoid;
+  page-break-after: always;
+  page-break-inside: avoid;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.sheet + .sheet {
+  margin-top: 0;
+  border-top: 10px solid #eceff4;
+}
+
+.surface {
+  position: relative;
+  display: block;
+}
+
+.raster {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.textLayer {
+  position: absolute;
+  inset: 0;
+  line-height: 1;
+  overflow: visible;
+  transform-origin: 0 0;
+  caret-color: #0f172a;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  background: transparent;
+  outline: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  font-synthesis: none;
+  text-decoration: none;
+}
+
+.textLayer span:focus,
+.textLayer span[data-dirty="true"] {
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+  text-decoration: none;
+  font-synthesis: none;
+}
+
+.textLayer span[contenteditable="false"] {
+  pointer-events: none;
+  cursor: default;
+}

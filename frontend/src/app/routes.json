@@ -1,0 +1,298 @@
+{
+  "$comment": "Table des routes partagée entre le routeur React (src/app/router.tsx) et le serveur Python (backend/app/web) : titres et descriptions SEO, routes protégées, statut 404, préchargements. {app} = nom de l'application.",
+  "defaults": {
+    "title": "{app}",
+    "description": "Créez un CV professionnel automatiquement, avec un modèle, un assistant IA et un export prêt pour les recruteurs."
+  },
+  "protectedPrefixes": [
+    "/dashboard",
+    "/cv",
+    "/profil",
+    "/analyse",
+    "/documents",
+    "/candidature",
+    "/admin",
+    "/support"
+  ],
+  "guestOnly": [
+    "/auth/login",
+    "/auth/signup",
+    "/auth/reset-password"
+  ],
+  "redirects": {
+    "/carriere": "/emploi"
+  },
+  "routes": [
+    {
+      "path": "/",
+      "module": "src/pages/vitrine/accueil.tsx",
+      "title": "Accueil",
+      "description": "Créez un CV professionnel compatible ATS avec un assistant IA, des modèles, une analyse recruteur et un export PDF. Gratuit pour commencer.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 },
+        { "src": "/images/fondHero.png", "sizes": "100vw" },
+        { "src": "/images/caroussel 0.png", "sizes": "(min-width: 1024px) 30rem, 80vw" }
+      ]
+    },
+    {
+      "path": "/auth/login",
+      "module": "src/pages/vitrine/auth/connexion.tsx",
+      "title": "Connexion",
+      "description": "Connectez-vous pour retrouver vos CV, analyses et documents.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/auth/signup",
+      "module": "src/pages/vitrine/auth/inscription.tsx",
+      "title": "Inscription",
+      "description": "Créez un compte gratuitement et commencez votre CV en quelques minutes.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/auth/reset-password",
+      "module": "src/pages/vitrine/auth/reinitialisation.tsx",
+      "title": "Réinitialiser le mot de passe",
+      "description": "Définissez un nouveau mot de passe avec le code reçu par e-mail.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/cgu",
+      "module": "src/pages/vitrine/cgu.tsx",
+      "title": "Conditions générales",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/contact",
+      "module": "src/pages/vitrine/contact.tsx",
+      "title": "Contact",
+      "description": "Une question sur un modèle, un plan ou un export ? Écrivez à l'équipe Nogalix.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/convertir",
+      "module": "src/pages/vitrine/convertir.tsx",
+      "title": "Convertir PDF et Word",
+      "description": "Convertissez un fichier PDF ou Word vers PDF, Word, PNG ou texte, avec la même reconstruction que l'éditeur {app}. Gratuit, sans compte.",
+      "ogPath": "/convertir",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/editer",
+      "module": "src/pages/vitrine/editer.tsx",
+      "title": "Éditer PDF, Word et texte",
+      "description": "Ouvrez un PDF, un Word ou un fichier texte dans le même éditeur que {app} : mise en page conservée, texte modifiable, export identique.",
+      "ogPath": "/editer",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/emploi",
+      "module": "src/pages/vitrine/emploi.tsx",
+      "title": "Offres d'emploi",
+      "description": "Parcourez les offres récentes. Connectez-vous pour voir l'entreprise, la source et le détail.",
+      "ogPath": "/emploi",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/faq",
+      "module": "src/pages/vitrine/faq.tsx",
+      "title": "FAQ",
+      "description": "Questions fréquentes sur {app} : modèles, export PDF, analyse ATS et offres d'emploi.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/image",
+      "module": "src/pages/vitrine/image.tsx",
+      "title": "Modifier ou extraire le texte d'une image",
+      "description": "Changez le texte écrit sur une image en gardant son style, ou extrayez-le avec sa mise en forme (titres, gras, listes, tableaux) vers Word ou texte. Gratuit.",
+      "ogPath": "/image",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/mentions-legales",
+      "module": "src/pages/vitrine/mentions-legales.tsx",
+      "title": "Mentions légales",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/modeles",
+      "module": "src/pages/vitrine/modeles.tsx",
+      "title": "Modèles de CV",
+      "description": "Choisissez un modèle de CV professionnel, compatible ATS, puis passez à l'éditeur.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/plans",
+      "module": "src/pages/vitrine/plans.tsx",
+      "title": "Plans",
+      "description": "Gratuit, Pro ou Premium : créez votre CV, analysez-le et candidatez. Sans carte pour commencer.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/politique-confidentialite",
+      "module": "src/pages/vitrine/politique-confidentialite.tsx",
+      "title": "Politique de confidentialité",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/analyse",
+      "module": "src/pages/modules/analyse.tsx",
+      "title": "Analyse IA",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/candidature",
+      "module": "src/pages/modules/candidature.tsx",
+      "title": "Candidature ciblée",
+      "description": "Collez une offre d'emploi et générez un CV adapté, une lettre ou une checklist.",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/cv",
+      "module": "src/pages/modules/cv/liste.tsx",
+      "title": "Mes CV",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/cv/nouveau",
+      "module": "src/pages/modules/cv/nouveau.tsx",
+      "title": "Nouveau CV",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/cv/:id",
+      "module": "src/pages/modules/cv/editeur.tsx",
+      "title": "Éditeur de CV",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/cv/:id/voix",
+      "module": "src/pages/modules/cv/voix.tsx",
+      "title": "Saisie vocale",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/dashboard",
+      "module": "src/pages/modules/dashboard.tsx",
+      "title": "Tableau de bord",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 },
+        { "src": "/images/fondHero.png", "sizes": "(min-width: 1580px) 1580px, 100vw" }
+      ]
+    },
+    {
+      "path": "/documents",
+      "module": "src/pages/modules/documents.tsx",
+      "title": "Documents",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/profil",
+      "module": "src/pages/modules/profil.tsx",
+      "title": "Mon profil",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/support",
+      "module": "src/pages/modules/support.tsx",
+      "title": "Support",
+      "description": "Contactez le support Nogalix : ouvrez un ticket, suivez les réponses et gérez vos demandes.",
+      "ogPath": "/support",
+      "preloadImages": [
+        { "src": "/logo.png", "width": 144 }
+      ]
+    },
+    {
+      "path": "/admin",
+      "module": "src/pages/admin/accueil.tsx",
+      "title": "Administration",
+      "description": "Tableau de bord d’administration Nogalix.",
+      "ogPath": "/admin"
+    },
+    {
+      "path": "/admin/cvs",
+      "module": "src/pages/admin/cvs.tsx",
+      "title": "CV · Admin",
+      "description": "Liste des CV sur Nogalix.",
+      "ogPath": "/admin/cvs"
+    },
+    {
+      "path": "/admin/messages",
+      "module": "src/pages/admin/messages.tsx",
+      "title": "Messages · Admin",
+      "description": "Messages de contact Nogalix.",
+      "ogPath": "/admin/messages"
+    },
+    {
+      "path": "/admin/paiements",
+      "module": "src/pages/admin/paiements.tsx",
+      "title": "Paiements · Admin",
+      "description": "Paiements des abonnements Nogalix.",
+      "ogPath": "/admin/paiements"
+    },
+    {
+      "path": "/admin/plans",
+      "module": "src/pages/admin/plans.tsx",
+      "title": "Plans",
+      "description": "Gestion des plans et limitations Nogalix.",
+      "ogPath": "/admin/plans"
+    },
+    {
+      "path": "/admin/plans/:id",
+      "module": "src/pages/admin/plan.tsx",
+      "title": "Configurer un plan",
+      "description": "Limitations et fonctionnalités d'un plan Nogalix.",
+      "ogPath": "/admin/plans"
+    },
+    {
+      "path": "/admin/utilisateurs",
+      "module": "src/pages/admin/utilisateurs.tsx",
+      "title": "Utilisateurs",
+      "description": "Gestion des utilisateurs Nogalix.",
+      "ogPath": "/admin/utilisateurs"
+    }
+  ]
+}
