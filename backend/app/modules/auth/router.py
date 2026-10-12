@@ -13,6 +13,7 @@ from app.modules.auth.schemas import (
     LoginRequest,
     RegisterRequest,
     ResetPasswordRequest,
+    VerifyEmailRequest,
 )
 from app.modules.users.models import User
 
@@ -51,6 +52,27 @@ def reset_password(request: Request, body: ResetPasswordRequest, db: Session = D
         code=body.code,
         password=body.password,
     )
+
+
+@router.post("/verify-email")
+@limiter.limit("10/minute")
+def verify_email(
+    request: Request,
+    body: VerifyEmailRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return auth_service.verify_email(db, user, code=body.code)
+
+
+@router.post("/verify-email/resend")
+@limiter.limit("3/minute")
+def resend_verification(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return auth_service.resend_verification_code(db, user)
 
 
 @router.post("/logout")
@@ -92,3 +114,9 @@ def me(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
 @limiter.limit("10/minute")
 async def google(request: Request, body: GoogleAuthRequest, db: Session = Depends(get_db)):
     return await auth_service.login_with_google(db, body.model_dump(exclude_none=True))
+
+
+# « Se connecter avec CBC » : /api/auth/cbc/start et /api/auth/cbc/callback
+from app.modules.auth.cbc_sso import router as cbc_sso_router  # noqa: E402
+
+router.include_router(cbc_sso_router, prefix="/cbc")

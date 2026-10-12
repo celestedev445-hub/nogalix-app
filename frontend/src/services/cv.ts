@@ -16,6 +16,10 @@ export async function updateCv(id: string | number, payload: Record<string, unkn
   return makeRequest(`cv/${id}`, "PUT", payload, true, false);
 }
 
+export async function duplicateCv(id: string | number) {
+  return makeRequest(`cv/${id}/duplicate`, "POST", null, true, false);
+}
+
 export async function deleteCv(id: string | number) {
   return makeRequest(`cv/${id}`, "DELETE", null, true, false);
 }

@@ -30,7 +30,7 @@ export const homeHighlights: HomeHighlight[] = [
   {
     title: "Assistant vocal",
     text: `Parlez au micro : ${appConfig.assistantFirstName} écoute votre parcours et rédige le CV.`,
-    image: "/images/assistantIA.png",
+    image: "/images/assistantIA-detoure.png",
     alt: "Assistant vocal qui écoute et rédige le CV",
   },
   {

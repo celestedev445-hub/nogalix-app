@@ -156,6 +156,15 @@ def delete_import_dir(user_id: int, cv_id: str) -> None:
         shutil.rmtree(path, ignore_errors=True)
 
 
+def copy_import_dir(user_id: int, source_cv_id: str, target_cv_id: str) -> None:
+    """Copie les fichiers importés (original, version éditable) d'un CV vers son double."""
+    source = STORAGE_ROOT / str(user_id) / _safe_segment(source_cv_id)
+    if not source.is_dir():
+        return
+    target = STORAGE_ROOT / str(user_id) / _safe_segment(target_cv_id)
+    shutil.copytree(source, target, dirs_exist_ok=True)
+
+
 def bump_version(user_id: int, cv_id: str) -> ImportMeta:
     meta = read_meta(user_id, cv_id)
     if not meta:

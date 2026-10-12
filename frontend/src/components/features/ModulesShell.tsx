@@ -38,6 +38,7 @@ import { useCvStore } from "@/store/cvStore";
 import { useNotificationStore } from "@/store/notificationsStore";
 import { logout } from "@/services/auth";
 import { NotificationBell } from "@/components/features/NotificationBell";
+import { EmailVerifyBanner } from "@/components/auth/EmailVerifyBanner";
 import { toast } from "@/hooks/use-toast";
 import { recordNavigation } from "@/lib/navigationHistory";
 import { isAppTabActive, isModuleEditorPath, modulePageTitle } from "@/lib/appNav";
@@ -272,6 +273,11 @@ export function ModulesShell({ children }: { children: React.ReactNode }) {
             : cn("pt-4 xl:pb-24 xl:pt-6", tabbarShown ? "pb-[calc(var(--app-tabbar-offset)+0.75rem)]" : "pb-8"),
         )}
       >
+        {!lockViewport ? (
+          <ClientOnly>
+            <EmailVerifyBanner />
+          </ClientOnly>
+        ) : null}
         {children}
       </main>
 

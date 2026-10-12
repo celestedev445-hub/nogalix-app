@@ -15,6 +15,7 @@ export type AuthUser = {
   has_google?: boolean;
   has_password?: boolean;
   plan_expires_at?: string | null;
+  email_verified?: boolean;
   notifyEmail?: boolean;
   notifyJobs?: boolean;
   notifyAnalysis?: boolean;

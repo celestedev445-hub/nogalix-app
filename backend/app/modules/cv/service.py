@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 import re
 from uuid import uuid4
 
@@ -10,6 +11,8 @@ from app.modules.cv.rewrite_analyse import _minimal_cv_from_text, build_rewrite_
 from app.modules.cv.analyse_schemas import CvMatchAnalyseRequest, CvRewriteAnalyseRequest
 from app.modules.cv.schemas import CvPayload, compute_completion
 from app.modules.users.models import CurriculumVitae, Notification, User
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize(row: CurriculumVitae) -> dict:
@@ -137,6 +140,61 @@ def update_cv(db: Session, user: User, cv_id: str, body: CvPayload) -> dict:
     db.add(row)
     db.commit()
     db.refresh(row)
+    return _serialize(row)
+
+
+def duplicate_cv(db: Session, user: User, cv_id: str) -> dict:
+    """Crée une copie indépendante d'un CV (contenu, modèle et fichier importé)."""
+    from app.modules.plans.capability import ensure_can_create_cv, ensure_can_use_template
+
+    source = (
+        db.query(CurriculumVitae)
+        .filter(CurriculumVitae.id == cv_id, CurriculumVitae.user_id == user.id)
+        .first()
+    )
+    if not source:
+        raise HTTPException(status_code=404, detail={"message": "CV introuvable."})
+
+    ensure_can_create_cv(db, user)
+    ensure_can_use_template(db, user, source.template_id)
+
+    new_id = str(uuid4())
+    title = f"Copie de {source.title or 'Mon CV'}"[:190]
+    payload = dict(source.payload or {})
+    payload.update({"id": new_id, "title": title, "principal": False})
+    now = datetime.now(timezone.utc)
+    row = CurriculumVitae(
+        id=new_id,
+        user_id=user.id,
+        template_id=source.template_id,
+        title=title,
+        principal=False,
+        completion=source.completion,
+        payload=payload,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(row)
+    db.add(
+        Notification(
+            user_id=user.id,
+            type="cv",
+            kind="cv",
+            message=f"CV « {source.title} » dupliqué.",
+            href=f"/cv/{row.id}",
+            actor="Nogalix",
+        )
+    )
+    db.commit()
+    db.refresh(row)
+
+    from app.modules.cv.import_storage import copy_import_dir
+
+    try:
+        copy_import_dir(user.id, source.id, new_id)
+    except OSError:
+        # Le contenu du CV est copié ; seul le fichier importé d'origine manquera.
+        logger.exception("Copie des fichiers importés impossible (%s -> %s)", source.id, new_id)
     return _serialize(row)
 
 

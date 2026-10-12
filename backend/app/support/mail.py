@@ -141,3 +141,103 @@ def reset_password_email_html(*, user_name: str, reset_code: str) -> str:
   </div>
 </body>
 </html>"""
+
+
+def branded_email_html(*, title: str, subtitle: str, body_html: str) -> str:
+    """Gabarit commun des e-mails (même habillage que la réinitialisation).
+
+    `body_html` doit déjà être échappé ; `title` et `subtitle` sont échappés ici.
+    """
+    app = html.escape(settings.app_name or "")
+    title = html.escape(title)
+    subtitle = html.escape(subtitle)
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+</head>
+<body style="margin:0;padding:30px 10px;font-family:Arial,sans-serif;background:#EEF2FF;color:#0F172A;">
+  <div style="max-width:600px;margin:0 auto;">
+    <div style="background:#3A83F7;border-radius:10px 10px 0 0;padding:28px 32px;text-align:center;">
+      <h1 style="margin:0;color:#fff;font-size:22px;">{app}</h1>
+      <p style="margin:4px 0 0;color:rgba(255,255,255,.8);font-size:13px;">{subtitle}</p>
+    </div>
+    <div style="background:#fff;padding:32px;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;font-size:15px;line-height:1.7;color:#334155;">
+      {body_html}
+    </div>
+    <div style="background:#EEF2FF;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 10px 10px;padding:20px 32px;text-align:center;font-size:12px;color:#64748B;">
+      <p style="margin:0;">Cet e-mail a été envoyé automatiquement par <strong style="color:#3A83F7;">{app}</strong>.</p>
+      <p style="margin:6px 0 0;">Ne répondez pas directement à cet e-mail.</p>
+    </div>
+  </div>
+</body>
+</html>"""
+
+
+def _greeting(user_name: str) -> str:
+    name = html.escape((user_name or "").strip())
+    return f"Bonjour <strong>{name}</strong>," if name else "Bonjour,"
+
+
+def verify_email_html(*, user_name: str, code: str) -> str:
+    code = html.escape(str(code))
+    body = f"""<p style="margin:0 0 16px;">{_greeting(user_name)}</p>
+      <p style="margin:0 0 16px;">Bienvenue ! Pour confirmer votre adresse e-mail, saisissez ce code dans votre espace :</p>
+      <div style="margin:24px 0;background:#F8FAFC;border:2px dashed #3A83F7;border-radius:8px;padding:20px;text-align:center;">
+        <div style="font-size:12px;color:#64748B;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Code de confirmation</div>
+        <div style="font-size:34px;font-weight:800;color:#3A83F7;letter-spacing:8px;">{code}</div>
+        <div style="font-size:12px;color:#4338CA;font-weight:600;margin-top:10px;">Valable pendant 24 heures</div>
+      </div>
+      <div style="background:#EEF2FF;border-left:4px solid #4338CA;border-radius:4px;padding:12px 16px;font-size:13px;color:#312E81;">
+        Si vous n'avez pas créé de compte, ignorez cet e-mail. Ne partagez jamais ce code.
+      </div>"""
+    return branded_email_html(
+        title=f"Confirmez votre adresse e-mail pour {settings.app_name}",
+        subtitle="Confirmation de l'adresse e-mail",
+        body_html=body,
+    )
+
+
+def plan_reminder_email_html(
+    *,
+    user_name: str,
+    plan_name: str,
+    end_label: str,
+    expired: bool,
+    renew_url: str,
+    yearly_discount: int = 0,
+) -> str:
+    plan = html.escape(plan_name)
+    end = html.escape(end_label)
+    url = html.escape(renew_url, quote=True)
+    if expired:
+        intro = (
+            f"Votre abonnement <strong>{plan}</strong> est arrivé à échéance : votre compte est repassé sur le plan Gratuit. "
+            "Vos CV sont conservés, mais les fonctionnalités du plan sont désactivées."
+        )
+    else:
+        intro = (
+            f"Votre abonnement <strong>{plan}</strong> se termine le <strong>{end}</strong>. "
+            "Il n'est pas renouvelé automatiquement : pensez à le prolonger pour garder vos avantages."
+        )
+    tip = (
+        '<p style="margin:0;font-size:13px;color:#64748B;">'
+        f"Astuce : l'abonnement de 12 mois coûte {int(yearly_discount)} % de moins.</p>"
+        if yearly_discount > 0
+        else ""
+    )
+    body = f"""<p style="margin:0 0 16px;">{_greeting(user_name)}</p>
+      <p style="margin:0 0 24px;">{intro}</p>
+      <p style="margin:0 0 24px;text-align:center;">
+        <a href="{url}" style="display:inline-block;background:#3A83F7;color:#fff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:8px;">
+          {"Réactiver mon plan" if expired else "Renouveler mon plan"}
+        </a>
+      </p>
+      {tip}"""
+    return branded_email_html(
+        title=f"Votre abonnement {plan_name}",
+        subtitle="Votre abonnement est terminé" if expired else "Votre abonnement arrive à échéance",
+        body_html=body,
+    )

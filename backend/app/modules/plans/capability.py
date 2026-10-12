@@ -231,6 +231,16 @@ def ensure_ai_trial(db: Session, user: User) -> bool:
     if limit == UNLIMITED:
         return False
     period = _trial_period_for(plan)
+    # Essais gratuits réservés aux adresses confirmées (évite les comptes jetables en série).
+    if period == "lifetime" and user.email_verified_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Confirmez votre adresse e-mail pour utiliser vos essais IA gratuits : un code vous a été envoyé.",
+                "code": "email_unverified",
+                "capability": "ai.trials",
+            },
+        )
 
     # Changement de période : remise à zéro (idempotent, concurrent-safe).
     db.execute(

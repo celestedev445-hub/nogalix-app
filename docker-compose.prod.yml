@@ -29,6 +29,10 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      default:
+        aliases:
+          - nogalix-cache
 
   # Serveur unique : pages du site, fichiers statiques et API /api/*
   app:
@@ -40,7 +44,7 @@ services:
       APP_DEBUG: "false"
       DB_HOST: db
       DB_PORT: 3306
-      RATELIMIT_STORAGE_URI: redis://redis:6379/0
+      RATELIMIT_STORAGE_URI: ${RATELIMIT_STORAGE_URI:-redis://nogalix-cache:6379/0}
       # Caddy (réseau Docker) transmet l'IP du visiteur via X-Forwarded-For
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16,127.0.0.1}
       # Adresse du serveur vue depuis le conteneur OnlyOffice

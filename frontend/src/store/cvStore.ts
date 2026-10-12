@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { CvData } from "@/lib/cvTypes";
 import { emptyCv } from "@/lib/demoData";
 import { preloadCvTemplates } from "@/lib/cvTemplateLoaders";
-import { createCv, deleteCv, getCv, listCvs, updateCv } from "@/services/cv";
+import { createCv, deleteCv, duplicateCv, getCv, listCvs, updateCv } from "@/services/cv";
 import { toast } from "@/hooks/use-toast";
 import { isNetworkError } from "@/lib/networkError";
 
@@ -51,6 +51,7 @@ type CvState = {
   upsert: (cv: CvData, persistRemote?: boolean) => Promise<CvData>;
   flush: (id: string) => Promise<CvData | null>;
   remove: (id: string, options?: { silent?: boolean }) => Promise<void>;
+  duplicate: (id: string) => Promise<CvData | null>;
   getById: (id: string) => CvData | undefined;
   reset: () => void;
 };
@@ -208,6 +209,32 @@ export const useCvStore = create<CvState>()((set, get) => ({
     const cv = get().getById(id);
     if (!cv) return null;
     return get().upsert(cv, true);
+  },
+  duplicate: async (id) => {
+    const source = get().getById(id);
+    try {
+      const copy = unwrapOne(await duplicateCv(id));
+      if (!copy) throw new Error("Réponse inattendue du serveur.");
+      // Le fichier importé (PDF/Word) est gardé dans le navigateur : on le recopie pour le double.
+      if (source?.importSource) {
+        const { ensureImportFile, registerImportFile } = await import("@/lib/importPreviewStore");
+        const file = await ensureImportFile(source.id, source.importSource);
+        if (file) await registerImportFile(copy.id, file);
+      }
+      set({
+        items: [copy, ...get().items.filter((item) => item.id !== copy.id)],
+        syncedIds: new Set([...get().syncedIds, copy.id]),
+      });
+      toast({ title: "CV dupliqué", description: `« ${copy.title} » a été créé.`, variant: "success" });
+      return copy;
+    } catch (error) {
+      toast({
+        title: "Duplication impossible",
+        description: error instanceof Error ? error.message : "Réessayez dans un instant.",
+        variant: "destructive",
+      });
+      return null;
+    }
   },
   remove: async (id, options) => {
     const snapshot = get().items;

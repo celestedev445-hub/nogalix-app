@@ -43,7 +43,7 @@ COPY --from=web /web/dist ./web
 RUN useradd --create-home --uid 10001 nogalix \
     && mkdir -p storage/uploads storage/imports storage/documents storage/cache \
     && chown -R nogalix:nogalix /app \
-    && chmod +x /entrypoint.sh
+    && chmod 755 /entrypoint.sh
 
 USER nogalix
 EXPOSE 8010

@@ -118,6 +118,12 @@ class Settings(BaseSettings):
     contact_phone: str = ""
     cbc_name: str = "CBC"
     cbc_url: str = "https://contactsbusinesscenter.com"
+    # Connexion « Se connecter avec CBC » (mini-SSO). Vide = bouton inactif.
+    cbc_sso_client_id: str = ""
+    cbc_sso_client_secret: str = ""
+    # Site CBC (page /sso) ; vide = CBC_URL.
+    cbc_sso_url: str = ""
+    cbc_sso_api_url: str = "https://api.contactsbusinesscenter.com"
     # E-mails affichés comme administrateurs dans l'interface en attendant le rôle en base (optionnel)
     public_admin_emails: str = ""
 
@@ -125,6 +131,10 @@ class Settings(BaseSettings):
     def public_app_url(self) -> str:
         """URL publique du site (balises SEO, liens absolus)."""
         return (self.frontend_url or self.app_url or "").strip().rstrip("/")
+
+    @property
+    def cbc_sso_enabled(self) -> bool:
+        return bool(self.cbc_sso_client_id.strip() and self.cbc_sso_client_secret.strip())
 
     @property
     def is_production(self) -> bool:

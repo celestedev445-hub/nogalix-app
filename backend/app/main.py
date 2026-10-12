@@ -22,6 +22,7 @@ from app.modules.documents.router import router as documents_router
 from app.modules.health.router import router as health_router
 from app.modules.jobs.router import router as jobs_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.payments.reminders import start_plan_reminders
 from app.modules.payments.router import router as payments_router
 from app.modules.profile.router import router as profile_router
 from app.modules.plans.router import router as plans_router
@@ -93,6 +94,8 @@ def create_app() -> FastAPI:
     warm_up_http()
     # Versions WebP des images publiques, préparées en arrière-plan.
     threading.Thread(target=warm_static_webp, name="warm-static-webp", daemon=True).start()
+    # Rappels avant la fin des abonnements et retour au plan Gratuit à l'échéance.
+    start_plan_reminders()
 
     return app
 

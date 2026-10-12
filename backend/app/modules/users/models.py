@@ -36,14 +36,20 @@ class User(Base):
     avatar: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     google_id: Mapped[Optional[str]] = mapped_column(String(120), nullable=True, unique=True)
     has_google: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Identifiant du compte CBC lié (connexion « Se connecter avec CBC »).
+    cbc_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, unique=True)
     status: Mapped[str] = mapped_column(String(30), default="active", nullable=False)
     role: Mapped[str] = mapped_column(String(30), default="user", nullable=False, index=True)
     email_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_verify_code: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    email_verify_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notify_email: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notify_jobs: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notify_analysis: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     plan_id: Mapped[Optional[int]] = mapped_column(ForeignKey("plans.id", ondelete="SET NULL"), nullable=True, index=True)
     plan_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Rappels d'échéance déjà envoyés pour l'abonnement en cours (0 = aucun, 1 = J-3, 2 = J-1).
+    plan_reminder_stage: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     ai_trials_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     ai_trials_period: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -73,11 +79,13 @@ class User(Base):
             "location": self.location,
             "avatar": self.avatar,
             "has_google": bool(self.has_google),
+            "has_cbc": self.cbc_id is not None,
             "has_password": bool(self.password_hash),
             "role": self.role or "user",
             "is_admin": self.is_admin(),
             "plan_id": self.plan_id,
             "plan_expires_at": iso_utc(self.plan_expires_at),
+            "email_verified": self.email_verified_at is not None,
             "created_at": iso_utc(self.created_at),
             "notifyEmail": bool(self.notify_email),
             "notifyJobs": bool(self.notify_jobs),

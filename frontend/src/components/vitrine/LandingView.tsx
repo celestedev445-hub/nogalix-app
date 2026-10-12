@@ -16,8 +16,8 @@ import { appConfig } from "@/lib/appConfig";
 import { previewCvForTemplate } from "@/lib/templatePreviews";
 import { enterUp, motionEase, reducedMotion, useSafeReducedMotion } from "@/lib/motion";
 import { templatesCatalog } from "@/lib/templatesCatalog";
-import { HeroCarousel } from "@/components/features/HeroCarousel";
-import { HomeHighlightsGrid } from "@/components/features/HomeHighlightsGrid";
+import { HERO_IMAGE_SLIDES, HeroCarousel, type HeroSlide } from "@/components/features/HeroCarousel";
+import { homeHighlights } from "@/lib/homeHighlights";
 import { cn } from "@/lib/utils";
 
 const card =
@@ -58,6 +58,13 @@ const FEATURES: {
   },
 ];
 
+// Illustrations du hero entrecoupées des cartes : illustration, 2 cartes, illustration, 2 cartes…
+const HERO_SLIDES: HeroSlide[] = HERO_IMAGE_SLIDES.flatMap((image, index) => [
+  image,
+  ...homeHighlights
+    .slice(index * 2, index * 2 + 2)
+    .map((item): HeroSlide => ({ kind: "highlight", item })),
+]);
 
 function Reveal({
   children,
@@ -162,20 +169,16 @@ export function LandingView() {
             </ul>
           </div>
           <div className="relative mt-2 min-w-0 lg:mt-0">
-            <div className="relative mx-auto aspect-[16/10] w-full max-w-md overflow-hidden rounded-2xl shadow-brand lg:hidden">
-              <Image
-                src="/images/caroussel 0.png"
-                alt="Aperçu de l'éditeur CV"
-                fill
-                // Bloc masqué sur grand écran (lg:hidden) et limité à max-w-md (28rem).
-                sizes="(min-width: 1024px) 1px, min(100vw, 28rem)"
-                className="object-cover object-top"
-                priority
-              />
-            </div>
-            <div className="hidden lg:block">
-              <HeroCarousel />
-            </div>
+            <HeroCarousel slides={HERO_SLIDES} />
+            {/* Le carrousel est décoratif (aria-hidden) : le texte des cartes reste lisible ici. */}
+            <ul className="sr-only">
+              {homeHighlights.map((item) => (
+                <li key={item.title}>
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </motion.section>
@@ -183,10 +186,6 @@ export function LandingView() {
       <div className="relative z-10 -mt-7 rounded-t-[1.75rem] bg-[#F9FBFF] md:-mt-9 md:rounded-t-[2.25rem]">
         <div className="site-inner py-10 md:py-12">
           <section>
-            <HomeHighlightsGrid />
-          </section>
-
-          <section className="mt-14 md:mt-16">
             <Reveal>
               <SectionHead kicker="L'espace candidat" title="Écrire, dicter, candidater" />
             </Reveal>

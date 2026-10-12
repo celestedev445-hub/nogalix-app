@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException, status
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -370,6 +371,7 @@ def activate_payment(db: Session, payment: Payment) -> None:
     if payment.plan_id:
         user.plan_id = payment.plan_id
     user.plan_expires_at = end
+    user.plan_reminder_stage = 0
     # Nouveau palier : on remet le compteur d'essais IA à zéro.
     user.ai_trials_used = 0
     user.ai_trials_period = None
@@ -497,13 +499,56 @@ def expire_plan_if_needed(db: Session, user: User) -> bool:
     end = _aware(user.plan_expires_at)
     if not end or end > utcnow():
         return False
+    previous = db.query(Plan).filter(Plan.id == user.plan_id).first() if user.plan_id else None
     free = db.query(Plan).filter(Plan.slug == "gratuit").first()
-    user.plan_id = free.id if free else None
-    user.plan_expires_at = None
-    user.ai_trials_used = 0
-    user.ai_trials_period = None
-    db.add(user)
+    # Mise à jour conditionnelle : la requête et la tâche de rappels peuvent passer en même temps,
+    # une seule des deux rétrograde le compte et prévient l'utilisateur.
+    claimed = db.execute(
+        update(User)
+        .where(User.id == user.id, User.plan_expires_at.is_not(None), User.plan_expires_at <= utcnow())
+        .values(
+            plan_id=free.id if free else None,
+            plan_expires_at=None,
+            plan_reminder_stage=0,
+            ai_trials_used=0,
+            ai_trials_period=None,
+        )
+        .execution_options(synchronize_session=False)
+    ).rowcount
+    if not claimed:
+        db.rollback()
+        db.refresh(user)
+        return False
     _notify(db, user.id, "Votre abonnement est arrivé à échéance : vous êtes repassé sur le plan Gratuit.")
     db.commit()
     db.refresh(user)
+    if previous and previous.slug != "gratuit":
+        send_plan_reminder_email(user, plan_name=previous.name, end=end, expired=True)
     return True
+
+
+def send_plan_reminder_email(user: User, *, plan_name: str, end: datetime, expired: bool) -> None:
+    if not user.notify_email:
+        return
+    try:
+        from app.support.mail import plan_reminder_email_html, send_html_mail
+
+        subject = (
+            f"Votre abonnement {plan_name} est terminé"
+            if expired
+            else f"Votre abonnement {plan_name} se termine le {end:%d/%m/%Y}"
+        )
+        send_html_mail(
+            to_email=user.email,
+            subject=subject,
+            html_body=plan_reminder_email_html(
+                user_name=user.name,
+                plan_name=plan_name,
+                end_label=f"{end:%d/%m/%Y}",
+                expired=expired,
+                renew_url=f"{settings.public_app_url}/plans",
+                yearly_discount=int(settings.yearly_discount_percent or 0),
+            ),
+        )
+    except Exception:  # l'e-mail ne doit jamais bloquer le traitement
+        logger.exception("Envoi du rappel d'échéance impossible (utilisateur %s)", user.id)

@@ -88,3 +88,17 @@ export async function resetPassword(payload: {
     message?: string;
   }>;
 }
+
+export async function verifyEmail(code: string) {
+  return makeRequest("auth/verify-email", "POST", { code }, true, false) as Promise<{
+    message: string;
+    email_verified: boolean;
+  }>;
+}
+
+export async function resendVerificationEmail() {
+  return makeRequest("auth/verify-email/resend", "POST", null, true, false) as Promise<{
+    message: string;
+    email_verified: boolean;
+  }>;
+}

@@ -126,6 +126,7 @@ export function DashboardView() {
   const user = useAuthStore((s) => s.user);
   const items = useCvStore((s) => s.items);
   const remove = useCvStore((s) => s.remove);
+  const duplicate = useCvStore((s) => s.duplicate);
   const setAssistantOpen = useInterfaceStore((s) => s.setAssistantOpen);
   const reduce = useSafeReducedMotion();
   const [toDelete, setToDelete] = useState<CvData | null>(null);
@@ -232,7 +233,12 @@ export function DashboardView() {
           </div>
           <div className="cv-card-grid">
             {recentCvs.map((cv) => (
-              <CvCard key={cv.id} cv={cv} onDelete={setToDelete} />
+              <CvCard
+                key={cv.id}
+                cv={cv}
+                onDelete={setToDelete}
+                onDuplicate={(item) => void duplicate(item.id)}
+              />
             ))}
             <CvNewCard />
           </div>

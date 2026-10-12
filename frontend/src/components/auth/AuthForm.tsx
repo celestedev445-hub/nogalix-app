@@ -1,6 +1,6 @@
 import Link from "@/platform/link";
 import { useRouter, useSearchParams } from "@/platform/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { GoogleAuthSection } from "@/components/auth/GoogleAuthSection";
+import { CbcAuthButton } from "@/components/auth/CbcAuthButton";
 import { ForgotPasswordModal } from "@/components/auth/ForgotPasswordModal";
 import { login, signup } from "@/services/auth";
 import { toast } from "@/hooks/use-toast";
@@ -31,6 +32,15 @@ const signupSchema = z
     message: "Les mots de passe ne correspondent pas",
     path: ["password_confirmation"],
   });
+
+const CBC_ERRORS: Record<string, string> = {
+  cancelled: "Connexion CBC annulée.",
+  invalid_state: "La connexion CBC a expiré. Réessayez.",
+  failed: "CBC n'a pas pu confirmer votre compte. Réessayez dans un instant.",
+  not_configured: "La connexion avec CBC n'est pas encore disponible.",
+  account_disabled: "Compte désactivé.",
+  account_conflict: "Ce compte Nogalix est déjà lié à un autre compte CBC.",
+};
 
 const fieldClass = "h-11 rounded-xl bg-[#F8FAFC] shadow-none";
 
@@ -67,6 +77,17 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   });
 
   const errors = form.formState.errors;
+
+  // Retour de /api/auth/cbc/callback en échec : ?cbc_error=<code>
+  const cbcError = params.get("cbc_error");
+  useEffect(() => {
+    if (!cbcError) return;
+    toast({
+      title: "Connexion CBC impossible",
+      description: CBC_ERRORS[cbcError] || CBC_ERRORS.failed,
+      variant: "destructive",
+    });
+  }, [cbcError]);
 
   function go() {
     router.push(next);
@@ -106,6 +127,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           {mode === "login" ? "Connexion" : "Créer un compte"}
         </h1>
         <div className="mt-6">
+          <div className="mb-3">
+            <CbcAuthButton next={next} disabled={pending} />
+          </div>
           <GoogleAuthSection onSuccess={go} disabled={pending} onBusyChange={setPending} />
         </div>
         <form

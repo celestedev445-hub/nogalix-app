@@ -91,6 +91,11 @@ def update(
     return cv_service.update_cv(db, user, cv_id, body)
 
 
+@router.post("/{cv_id}/duplicate", status_code=201)
+def duplicate(cv_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return cv_service.duplicate_cv(db, user, cv_id)
+
+
 @router.delete("/{cv_id}")
 def destroy(cv_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return cv_service.delete_cv(db, user, cv_id)

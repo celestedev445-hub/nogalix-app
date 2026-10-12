@@ -2,7 +2,7 @@ import Link from "@/platform/link";
 import { useRouter } from "@/platform/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Keyboard, Mic, Plus, Trash2 } from "lucide-react";
+import { Copy, Keyboard, Mic, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScoreRing } from "@/components/cv/ScoreRing";
 import { CvThumbnail } from "@/components/cv/CvThumbnail";
@@ -25,9 +25,11 @@ function templateName(id: string) {
 export function CvCard({
   cv,
   onDelete,
+  onDuplicate,
 }: {
   cv: CvData;
   onDelete?: (cv: CvData) => void;
+  onDuplicate?: (cv: CvData) => void;
 }) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -78,18 +80,34 @@ export function CvCard({
               {formatDistanceToNow(new Date(cv.updatedAt), { addSuffix: true, locale: fr })}
             </p>
           </div>
-          {onDelete ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0 text-navy/40 hover:bg-red-50 hover:text-red-600"
-              aria-label={`Supprimer ${cv.title}`}
-              onClick={() => onDelete(cv)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          ) : null}
+          <div className="flex shrink-0 items-center">
+            {onDuplicate ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-navy/40 hover:bg-indigo-clair hover:text-principale"
+                aria-label={`Dupliquer ${cv.title}`}
+                title="Dupliquer"
+                onClick={() => onDuplicate(cv)}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {onDelete ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-navy/40 hover:bg-red-50 hover:text-red-600"
+                aria-label={`Supprimer ${cv.title}`}
+                title="Supprimer"
+                onClick={() => onDelete(cv)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </div>
         </div>
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3">
           <div className="flex min-w-0 items-center gap-2">

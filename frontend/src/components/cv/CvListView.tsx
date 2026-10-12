@@ -23,6 +23,7 @@ export function CvListView() {
   const items = useCvStore((s) => s.items);
   const loaded = useCvStore((s) => s.loaded);
   const remove = useCvStore((s) => s.remove);
+  const duplicate = useCvStore((s) => s.duplicate);
   const [toDelete, setToDelete] = useState<CvData | null>(null);
 
   return (
@@ -74,7 +75,12 @@ export function CvListView() {
         ) : (
         <div className="cv-card-grid">
           {items.map((cv) => (
-            <CvCard key={cv.id} cv={cv} onDelete={setToDelete} />
+            <CvCard
+                key={cv.id}
+                cv={cv}
+                onDelete={setToDelete}
+                onDuplicate={(item) => void duplicate(item.id)}
+              />
           ))}
           <CvNewCard />
         </div>
