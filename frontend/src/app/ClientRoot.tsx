@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { initializeAuth } from "@/lib/initializeAuth";
 import { useAuthStore } from "@/store/authStore";
+import { CbcProGiftNotice } from "@/components/auth/CbcProGiftNotice";
 import { Toaster } from "@/components/ui/toaster";
 import { RegisterServiceWorker } from "@/components/pwa/RegisterServiceWorker";
 import { ConnectionGate } from "@/components/features/ConnectionGate";
@@ -22,6 +23,7 @@ function ClientOverlayItems() {
       <RegisterServiceWorker />
       <DeferredAssistantDock />
       <Toaster />
+      <CbcProGiftNotice />
     </>
   );
 }

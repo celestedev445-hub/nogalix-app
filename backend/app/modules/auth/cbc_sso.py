@@ -3,7 +3,7 @@
 1. GET /api/auth/cbc/start    : state aléatoire en cookie, redirection vers la page /sso de CBC.
 2. CBC renvoie sur GET /api/auth/cbc/callback?code=…&state=… ;
    le serveur vérifie le state, échange le code (serveur à serveur, avec le secret)
-   contre le profil CBC, puis ouvre la session Nogalix (cookie HttpOnly authToken).
+   contre le profil CBC, puis ouvre la session Nogalix (cookie HttpOnly).
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from app.core.database import get_db
 from app.core.http import async_client
 from app.core.limiter import limiter
 from app.modules.auth.service import issue_token
+from app.modules.plans.models import Plan
 from app.modules.users.models import Notification, User
 from app.web.session import cookie_secure, set_cookie_header
 
@@ -156,7 +157,134 @@ class CbcAccountConflict(Exception):
     """Le compte Nogalix de cet e-mail est déjà lié à un autre compte CBC."""
 
 
-def _find_or_create_user(db: Session, profile: dict) -> User:
+# Pack CBC → forfait Nogalix. Sans pack actif, le compte reste sur Gratuit.
+CBC_PACK_PLAN = {
+    "basic": "gratuit",
+    "basique": "gratuit",
+    "pro": "pro",
+    "gold": "premium",
+}
+
+CBC_OFFER_MESSAGE = {
+    "basic": (
+        "Votre connexion avec CBC active le forfait Gratuit, celui de votre pack Basic. "
+        "Il est actif sur votre compte."
+    ),
+    "pro": (
+        "Votre connexion avec CBC vous offre le forfait Pro, celui de votre pack Pro. "
+        "Il est actif sur votre compte."
+    ),
+    "gold": (
+        "Votre connexion avec CBC vous offre le forfait Premium, celui de votre pack Gold. "
+        "Il est actif sur votre compte."
+    ),
+    "free": (
+        "Votre connexion avec CBC active le forfait Gratuit. Il est actif sur votre compte."
+    ),
+}
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def _subscription_active(user: User, now: datetime) -> bool:
+    """Un forfait sans échéance reste actif. Une date passée ne l'est plus."""
+    if not user.plan_id:
+        return False
+    if user.plan_expires_at is None:
+        return True
+    return _as_utc(user.plan_expires_at) > now
+
+
+def _cbc_offer_key(profile: dict) -> str:
+    """basic, pro, gold, ou free quand CBC n'a pas de pack actif."""
+    raw = profile.get("pack")
+    if isinstance(raw, dict):
+        raw = raw.get("name")
+    key = str(raw or "").strip().lower()
+    if key in CBC_PACK_PLAN:
+        return "basic" if key == "basique" else key
+    return "free"
+
+
+def _plan_by_slug(db: Session, slug: str) -> Optional[Plan]:
+    return (
+        db.query(Plan)
+        .filter(Plan.slug == slug, Plan.is_active.is_(True))
+        .first()
+    )
+
+
+def _align_cbc_plan(db: Session, user: User, profile: dict) -> Optional[str]:
+    """Aligne le forfait Nogalix sur le pack CBC.
+
+    Basic → Gratuit, Pro → Pro, Gold → Premium. Sans pack, Gratuit.
+    Un forfait Nogalix payé, encore en cours et plus élevé, n'est pas rétrogradé.
+    Un cadeau permanent qui ne correspond plus au pack est corrigé.
+    Retourne la clé d'alerte seulement quand le forfait vient de changer.
+    """
+    offer = _cbc_offer_key(profile)
+    slug = CBC_PACK_PLAN.get(offer, "gratuit")
+    target = _plan_by_slug(db, slug)
+    if target is None:
+        logger.warning("CBC SSO : plan %s introuvable, forfait CBC non appliqué", slug)
+        if user.plan_id is None:
+            from app.modules.plans.seed import get_default_free_plan
+
+            free = get_default_free_plan(db)
+            if free:
+                user.plan_id = free.id
+                db.add(user)
+        return None
+
+    now = datetime.now(timezone.utc)
+    current = db.query(Plan).filter(Plan.id == user.plan_id).first() if user.plan_id else None
+    already = (
+        current is not None
+        and current.id == target.id
+        and _subscription_active(user, now)
+        and user.plan_expires_at is None
+    )
+    if already:
+        return None
+
+    paid_higher = (
+        current is not None
+        and _subscription_active(user, now)
+        and user.plan_expires_at is not None
+        and int(current.level) > int(target.level)
+    )
+    if paid_higher:
+        return None
+
+    user.plan_id = target.id
+    user.plan_expires_at = None
+    user.plan_reminder_stage = 0
+    user.ai_trials_used = 0
+    user.ai_trials_period = None
+    db.add(user)
+    db.add(
+        Notification(
+            user_id=user.id,
+            type="cbc_plan",
+            kind="plan",
+            message=CBC_OFFER_MESSAGE[offer],
+            href="/plans",
+            actor="Nogalix",
+        )
+    )
+    return offer
+
+
+def _with_query_flag(path: str, key: str, value: str) -> str:
+    separator = "&" if "?" in path else "?"
+    return f"{path}{separator}{urlencode({key: value})}"
+
+
+def _find_or_create_user(db: Session, profile: dict) -> tuple[User, Optional[str]]:
     cbc_id = int(profile["id"])
     email = str(profile["email"]).strip().lower()
 
@@ -176,42 +304,36 @@ def _find_or_create_user(db: Session, profile: dict) -> User:
         if not user.phone and profile.get("phone"):
             user.phone = str(profile["phone"])[:40]
         db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
-
-    location = ", ".join(str(profile[key]) for key in ("city", "country") if profile.get(key))
-    user = User(
-        name=(str(profile.get("name") or "").strip() or email.split("@")[0])[:120],
-        email=email,
-        cbc_id=cbc_id,
-        phone=str(profile["phone"])[:40] if profile.get("phone") else None,
-        location=location[:190] or None,
-        status="active",
-        role="user",
-        email_verified_at=datetime.now(timezone.utc),
-    )
-    db.add(user)
-    db.flush()
-    from app.modules.plans.seed import get_default_free_plan
-
-    free = get_default_free_plan(db)
-    if free:
-        user.plan_id = free.id
-        db.add(user)
-    db.add(
-        Notification(
-            user_id=user.id,
-            type="systeme",
-            kind="systeme",
-            message="Bienvenue sur Nogalix. Créez votre premier CV pour démarrer.",
-            href="/cv/nouveau",
-            actor="Nogalix",
+    else:
+        location = ", ".join(str(profile[key]) for key in ("city", "country") if profile.get(key))
+        user = User(
+            name=(str(profile.get("name") or "").strip() or email.split("@")[0])[:120],
+            email=email,
+            cbc_id=cbc_id,
+            phone=str(profile["phone"])[:40] if profile.get("phone") else None,
+            location=location[:190] or None,
+            status="active",
+            role="user",
+            email_verified_at=datetime.now(timezone.utc),
         )
-    )
+        db.add(user)
+        db.flush()
+        db.add(
+            Notification(
+                user_id=user.id,
+                type="systeme",
+                kind="systeme",
+                message="Bienvenue sur Nogalix. Créez votre premier CV pour démarrer.",
+                href="/cv/nouveau",
+                actor="Nogalix",
+            )
+        )
+
+    # Compte désactivé : on garde le lien CBC, sans changer le forfait ni ouvrir de session.
+    offer = _align_cbc_plan(db, user, profile) if user.status == "active" else None
     db.commit()
     db.refresh(user)
-    return user
+    return user, offer
 
 
 @router.get("/callback")
@@ -238,14 +360,20 @@ async def callback(
         return _login_error("failed")
 
     try:
-        user = _find_or_create_user(db, profile)
+        user, offer = _find_or_create_user(db, profile)
     except CbcAccountConflict:
         return _login_error("account_conflict")
     if user.status != "active":
         return _login_error("account_disabled")
 
     token = issue_token(db, user)
-    response = RedirectResponse(_decode_next(encoded_next), status_code=303)
+    destination = _decode_next(encoded_next)
+    if offer:
+        destination = _with_query_flag(destination, "cbc_offer", offer)
+    response = RedirectResponse(
+        f"{settings.public_app_url}{destination}",
+        status_code=303,
+    )
     _clear_state_cookie(response)
     response.headers.append("set-cookie", set_cookie_header(token))
     return response

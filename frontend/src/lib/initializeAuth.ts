@@ -21,11 +21,6 @@ export async function initializeAuth() {
   const store = useAuthStore.getState();
   purgeLegacyLocalData();
 
-  // Purge legacy non-HttpOnly authToken leftovers (HttpOnly cookie is untouched).
-  if (typeof document !== "undefined") {
-    document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Lax";
-  }
-
   let session: SessionProbe = { authenticated: false };
   try {
     const response = await fetch("/api/auth/cookie", {
