@@ -244,6 +244,27 @@
       gap: 1rem;
     }
   }
+
+  /* Rangée d'onglets / filtres : une seule ligne qui défile sur mobile au lieu de passer à la ligne. */
+  @media (max-width: 639px) {
+    .scroll-row-mobile {
+      flex-wrap: nowrap !important;
+      justify-content: flex-start !important;
+      max-width: 100%;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .scroll-row-mobile::-webkit-scrollbar {
+      display: none;
+    }
+
+    .scroll-row-mobile > * {
+      flex-shrink: 0;
+    }
+  }
 }
 
 @media (max-width: 767px) {

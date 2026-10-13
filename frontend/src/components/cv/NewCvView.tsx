@@ -12,9 +12,9 @@ export function NewCvView() {
 
   return (
     <div className="relative space-y-6">
-      <div className="flex flex-wrap items-start gap-2">
+      <div className="flex items-start gap-2">
         <BackButton fallbackHref="/cv" className="mt-0.5" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-2xl font-bold title-logo sm:text-3xl">Choisissez un modèle</h1>
           <p className="mt-1 text-sm text-navy/65">
             Sélectionnez la mise en page, puis confirmez pour l’utiliser.

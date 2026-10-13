@@ -43,7 +43,7 @@ export function CvListView() {
         </Button>
       </div>
 
-      <section className={cn("min-w-0 rounded-xl bg-white p-5", cardShadow)}>
+      <section className={cn("min-w-0 rounded-xl bg-white p-3 sm:p-5", cardShadow)}>
         <div className="mb-5 flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-navy/55">
             {!loaded ? "Chargement…" : `${items.length} CV`}

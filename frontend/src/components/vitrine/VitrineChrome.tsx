@@ -36,10 +36,6 @@ const footerGroups = [
       { href: "/convertir", label: "Convertir" },
       { href: "/editer", label: "Éditer" },
       { href: "/image", label: "Texte d'une image" },
-      { href: "/emploi", label: "Emploi" },
-      { href: "/plans", label: "Plans" },
-      { href: "/faq", label: "FAQ" },
-      { href: "/auth/signup", label: "Créer un CV" },
     ],
   },
   {
@@ -183,7 +179,7 @@ function FooterHeading({ children }: { children: React.ReactNode }) {
 function FooterContactIcon({ icon: Icon }: { icon: typeof Mail }) {
   return (
     <span
-      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/12 text-principale ring-1 ring-white/20"
+      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10 text-principale ring-1 ring-white/20"
       aria-hidden
     >
       <Icon className="h-3.5 w-3.5" />
@@ -195,8 +191,8 @@ export function VitrineFooter() {
   return (
     <footer className="mt-auto bg-navy text-white">
       <div className="site-inner pb-[calc(2rem+var(--app-tabbar-offset))] pt-[4.25rem] md:pb-10 md:pt-[5.25rem]">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-x-12 gap-y-8 sm:grid-cols-2 lg:grid-cols-12">
-          <div className="min-w-0 sm:col-span-2 lg:col-span-4">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 sm:gap-x-12 lg:grid-cols-12">
+          <div className="col-span-2 min-w-0 lg:col-span-4">
             <div className="flex h-12 items-center">
               <div className="inline-flex rounded-full bg-white px-3 py-1.5 shadow-brand">
                 <BrandLogo />
@@ -225,7 +221,7 @@ export function VitrineFooter() {
               </ul>
             </nav>
           ))}
-          <div className="min-w-0 sm:col-span-2 lg:col-span-4">
+          <div className="col-span-2 min-w-0 lg:col-span-4">
             <FooterHeading>Contact</FooterHeading>
             <div className="mt-3 flex items-start gap-3">
               <FooterContactIcon icon={Mail} />
@@ -245,17 +241,40 @@ export function VitrineFooter() {
               href={appConfig.cbcUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="group mt-5 block rounded-xl bg-white/[0.06] p-3 ring-1 ring-white/12 transition-colors duration-200 hover:bg-white/[0.1] hover:ring-white/20"
+              aria-label={`Contacts Business Center (${appConfig.cbcName}), partenaire — ouvrir le site`}
+              className="group relative mt-5 block overflow-hidden rounded-xl bg-white/[0.06] p-3 ring-1 ring-white/10 transition-colors duration-200 hover:bg-white/[0.1] hover:ring-white/20"
             >
-              <p className="text-left text-[0.625rem] font-semibold uppercase tracking-[0.16em] text-principale">
-                Pub
-              </p>
-              <p className="mt-1.5 text-left text-sm font-semibold text-white">{appConfig.cbcName}</p>
-              <p className="mt-1 text-left text-xs leading-relaxed text-white/60">
-                Annuaire, formations et marketplace pour votre activité.
-              </p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-principale">
-                Découvrir
+              <span
+                aria-hidden
+                className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[#2955b3] via-[#ff9900] to-[#7ac943]"
+              />
+              <div className="flex items-start gap-3">
+                <span className="flex h-12 w-[4.5rem] shrink-0 items-center justify-center rounded-lg bg-white/[0.04] ring-1 ring-white/10">
+                  <img
+                    src="/images/partners/cbc-emblem.png"
+                    alt=""
+                    width={192}
+                    height={93}
+                    loading="lazy"
+                    className="h-auto w-16"
+                  />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-left text-sm font-semibold text-white">
+                      Contacts <span className="text-[#ff9900]">Business</span> Center
+                    </p>
+                    <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-px text-[0.5625rem] font-semibold uppercase tracking-[0.14em] text-white/55">
+                      Pub
+                    </span>
+                  </div>
+                  <p className="mt-1 text-left text-xs leading-relaxed text-white/60">
+                    Annuaire, formations et marketplace pour développer votre activité.
+                  </p>
+                </div>
+              </div>
+              <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#ff9900]">
+                Découvrir {appConfig.cbcName}
                 <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none" />
               </span>
             </a>

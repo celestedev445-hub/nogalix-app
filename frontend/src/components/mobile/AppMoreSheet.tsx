@@ -28,7 +28,7 @@ export function AppMoreSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="gap-0 rounded-t-[1.5rem] border-gris px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2"
+        className="max-h-[88dvh] gap-0 overflow-y-auto rounded-t-[1.5rem] border-gris px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2"
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gris" aria-hidden />
         <SheetHeader className="mb-3 text-left">

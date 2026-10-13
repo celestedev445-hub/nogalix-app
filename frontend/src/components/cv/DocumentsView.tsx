@@ -328,20 +328,22 @@ export function DocumentsView() {
                 type="button"
                 onClick={() => setFilter(item.key)}
                 className={cn(
-                  "rounded-xl bg-[#F8FAFC] p-4 text-left transition-transform duration-brand ease-brand hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none",
+                  "flex items-center gap-3 rounded-xl bg-[#F8FAFC] p-3 text-left transition-transform sm:block sm:p-4 duration-brand ease-brand hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none",
                   cardShadow,
                   filter === item.key && "ring-2 ring-principale/40",
                 )}
               >
-                <span className={cn("inline-flex h-10 w-10 items-center justify-center rounded-xl", meta.tint)}>
+                <span className={cn("inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", meta.tint)}>
                   <Icon className="h-5 w-5" />
                 </span>
-                <p className="mt-3 font-display text-2xl font-extrabold text-navy">{counts[item.key]}</p>
-                <p className="mt-1 flex flex-wrap items-center gap-2 font-semibold text-navy">
-                  {item.name}
-                  {"plan" in item && item.plan ? <PlanFeatureBadge plan={item.plan} compact /> : null}
-                </p>
-                <p className="text-xs text-navy/50">{item.hint}</p>
+                <span className="block min-w-0 flex-1">
+                  <span className="block font-display text-xl font-extrabold text-navy sm:mt-3 sm:text-2xl">{counts[item.key]}</span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-2 font-semibold text-navy sm:mt-1">
+                    {item.name}
+                    {"plan" in item && item.plan ? <PlanFeatureBadge plan={item.plan} compact /> : null}
+                  </span>
+                  <span className="block text-xs text-navy/50">{item.hint}</span>
+                </span>
               </button>
             );
           })}
@@ -350,7 +352,7 @@ export function DocumentsView() {
 
       <section className={cn("rounded-xl bg-white p-5", cardShadow)}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-1">
+          <div className="scroll-row-mobile flex flex-wrap gap-1">
             {FILTERS.map((item) => (
               <button
                 key={item.id}

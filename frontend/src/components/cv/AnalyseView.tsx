@@ -192,7 +192,7 @@ export function AnalyseView() {
         {quotaHint ? <p className="mt-2 text-xs font-medium text-principale">{quotaHint}</p> : null}
       </div>
 
-      <section className={cn("rounded-2xl bg-white p-5 sm:p-6", cardShadow)}>
+      <section className={cn("rounded-2xl bg-white p-4 sm:p-6", cardShadow)}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-navy/55">
             {!loaded ? "Chargement…" : "Choisissez le CV à comparer"}

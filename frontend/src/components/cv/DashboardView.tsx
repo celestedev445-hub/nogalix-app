@@ -219,9 +219,9 @@ export function DashboardView() {
       </motion.section>
 
       <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(16.5rem,20.5rem)]">
-        <section className={cn("min-w-0 rounded-xl bg-white p-5", cardShadow)}>
+        <section className={cn("min-w-0 rounded-xl bg-white p-3 sm:p-5", cardShadow)}>
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="min-w-0 truncate font-display text-base font-semibold text-navy sm:text-lg">
+            <h2 className="min-w-0 font-display leading-snug sm:truncate text-base font-semibold text-navy sm:text-lg">
               Continuez là où vous vous êtes arrêtés
             </h2>
             <Link

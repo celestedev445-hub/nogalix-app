@@ -606,7 +606,7 @@ export function ConvertView({ intent = "convert" }: { intent?: "convert" | "edit
           <>
             <div className="mt-5 space-y-2">
               <p className="text-sm font-medium text-navy">Format de téléchargement</p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="grid grid-cols-3 gap-2 pb-1 sm:flex sm:overflow-x-auto">
             {formats.map((item) => {
               const active = format === item.id;
               const Icon = item.icon;
@@ -617,7 +617,7 @@ export function ConvertView({ intent = "convert" }: { intent?: "convert" | "edit
                   disabled={pending}
                   onClick={() => setFormat(item.id)}
                   className={cn(
-                    "relative flex min-w-[7.25rem] flex-1 flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors",
+                    "relative flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-xl border px-1.5 py-3 text-center transition-colors sm:min-w-[7.25rem] sm:px-2",
                     active
                       ? "border-[#3A5A97] bg-[#EEF2F8] ring-1 ring-[#3A5A97]/30"
                       : "border-gris bg-white hover:bg-[#F8FAFC]",
@@ -636,7 +636,7 @@ export function ConvertView({ intent = "convert" }: { intent?: "convert" | "edit
                   >
                     <Icon className="h-4 w-4" />
                   </span>
-                  <span className="font-semibold leading-tight text-navy">
+                  <span className="text-sm font-semibold leading-tight text-navy sm:text-base">
                     {item.label}
                     <span className="block font-normal text-navy/50">{item.extension}</span>
                   </span>

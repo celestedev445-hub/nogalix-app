@@ -37,7 +37,7 @@ export function AppTabBar({
       )}
     >
       <div className="pointer-events-auto mx-auto max-w-lg px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1">
-        <div className="flex items-stretch rounded-[1.35rem] border border-gris/80 bg-white/94 px-1 py-1 shadow-[0_-8px_28px_-12px_rgba(15,23,42,0.18)] backdrop-blur-md">
+        <div className="flex items-stretch rounded-[1.35rem] border border-gris/80 bg-white/95 px-1 py-1 shadow-[0_-8px_28px_-12px_rgba(15,23,42,0.18)] backdrop-blur-md">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const active = !moreOpen && isAppTabActive(pathname, tab.href, tab.match);

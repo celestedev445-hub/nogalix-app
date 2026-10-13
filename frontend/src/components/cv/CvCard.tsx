@@ -64,9 +64,9 @@ export function CvCard({
       </Link>
       <div className="flex min-w-0 flex-1 flex-col px-1 pb-1 pt-3">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate font-semibold text-navy" title={cv.title}>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="line-clamp-2 min-w-0 max-w-full break-words font-semibold leading-snug text-navy sm:line-clamp-1" title={cv.title}>
                 {cv.title}
               </p>
               {cv.principal ? (
@@ -75,18 +75,18 @@ export function CvCard({
                 </span>
               ) : null}
             </div>
-            <p className="mt-0.5 truncate text-xs text-navy/50">
+            <p className="mt-0.5 line-clamp-2 text-xs text-navy/50 sm:line-clamp-1">
               {templateName(cv.templateId)} · modifié{" "}
               {formatDistanceToNow(new Date(cv.updatedAt), { addSuffix: true, locale: fr })}
             </p>
           </div>
-          <div className="flex shrink-0 items-center">
+          <div className="-mr-1 flex shrink-0 items-center sm:mr-0">
             {onDuplicate ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0 text-navy/40 hover:bg-indigo-clair hover:text-principale"
+                className="h-7 w-7 shrink-0 text-navy/40 hover:bg-indigo-clair sm:h-8 sm:w-8 hover:text-principale"
                 aria-label={`Dupliquer ${cv.title}`}
                 title="Dupliquer"
                 onClick={() => onDuplicate(cv)}
@@ -99,7 +99,7 @@ export function CvCard({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0 text-navy/40 hover:bg-red-50 hover:text-red-600"
+                className="h-7 w-7 shrink-0 text-navy/40 hover:bg-red-50 sm:h-8 sm:w-8 hover:text-red-600"
                 aria-label={`Supprimer ${cv.title}`}
                 title="Supprimer"
                 onClick={() => onDelete(cv)}
@@ -116,12 +116,12 @@ export function CvCard({
             </ScoreRing>
             <span className="text-[11px] text-navy/55">Complété</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid w-full grid-cols-1 gap-1.5 sm:flex sm:w-auto sm:flex-wrap">
             <Button
               asChild
               variant="secondary"
               size="sm"
-              className="h-8 rounded-xl bg-indigo-clair px-3 text-principale shadow-none hover:bg-indigo-clair/80"
+              className="h-8 w-full rounded-xl bg-indigo-clair px-2 text-principale sm:w-auto sm:px-3 shadow-none hover:bg-indigo-clair/80"
             >
               <Link href={`/cv/${cv.id}`}>
                 <Keyboard className="h-3.5 w-3.5" />
@@ -132,7 +132,7 @@ export function CvCard({
               type="button"
               variant="secondary"
               size="sm"
-              className="h-8 rounded-xl bg-indigo-clair px-3 text-principale shadow-none hover:bg-indigo-clair/80"
+              className="h-8 w-full gap-1.5 rounded-xl bg-indigo-clair px-2 text-principale shadow-none hover:bg-indigo-clair/80 sm:w-auto sm:gap-2 sm:px-3"
               onClick={openVoice}
             >
               <Mic className="h-3.5 w-3.5" />

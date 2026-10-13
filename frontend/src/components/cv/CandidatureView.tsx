@@ -400,7 +400,7 @@ export function CandidatureView() {
               result.checklist ? "checklist" : result.cv ? "cv" : "letter"
             }
           >
-            <TabsList className="h-auto flex-wrap gap-1 rounded-xl bg-[#F8FAFC] p-1">
+            <TabsList className="scroll-row-mobile h-auto flex-wrap gap-1 rounded-xl bg-[#F8FAFC] p-1">
               {result.checklist ? (
                 <TabsTrigger value="checklist" className={tabClass}>
                   <ClipboardList className="mr-1.5 h-3.5 w-3.5" />

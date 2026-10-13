@@ -152,14 +152,14 @@ export function AdminPlanDetailView({ planId }: { planId: number }) {
 
   return (
     <div className="min-w-0 space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button asChild variant="ghost" size="sm" className="rounded-xl">
-          <Link href="/admin/plans">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Button asChild variant="ghost" size="sm" className="shrink-0 rounded-xl max-sm:px-2">
+          <Link href="/admin/plans" aria-label="Retour aux plans">
             <ArrowLeft className="h-4 w-4" />
-            Plans
+            <span className="max-sm:sr-only">Plans</span>
           </Link>
         </Button>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-2xl font-bold text-navy">{plan.name}</h1>
           <p className="text-sm text-navy/55">slug · {plan.slug}</p>
         </div>

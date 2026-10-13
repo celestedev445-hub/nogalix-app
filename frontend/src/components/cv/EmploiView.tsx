@@ -9,19 +9,24 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
+  Clock,
   ExternalLink,
+  Globe,
   Loader2,
   Lock,
   MapPin,
   Search,
+  SlidersHorizontal,
   Sparkles,
   Upload,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -192,6 +197,65 @@ function JobsPagination({
   );
 }
 
+function FilterChip({
+  active,
+  disabled,
+  icon: Icon,
+  title,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  icon?: LucideIcon;
+  title?: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-pressed={active}
+      title={title}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold transition-transform duration-brand ease-brand active:scale-[0.97] motion-reduce:transition-none disabled:opacity-60",
+        active ? "bg-indigo-clair text-principale" : "text-navy/55 hover:bg-indigo-clair/70",
+      )}
+    >
+      {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+      {children}
+    </button>
+  );
+}
+
+/** Groupe de filtres du panneau mobile : icône du type filtré, libellé, puces. */
+function FilterGroup({
+  icon: Icon,
+  label,
+  hint,
+  children,
+}: {
+  icon: LucideIcon;
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-t border-gris/70 py-4 first:border-t-0 first:pt-0">
+      <p className="flex items-center gap-2 text-sm font-semibold text-navy">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-clair text-principale">
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        {label}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">{children}</div>
+      {hint ? <p className="mt-2 text-xs text-navy/50">{hint}</p> : null}
+    </div>
+  );
+}
+
 export function EmploiView() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -204,6 +268,7 @@ export function EmploiView() {
   const savedLoading = useSavedJobsStore((s) => s.loading);
   const loadSavedJobs = useSavedJobsStore((s) => s.load);
   const [view, setView] = useState<"recherche" | "enregistrees">("recherche");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const reduce = useSafeReducedMotion();
   const motionProps = reduce ? reducedMotion : enterUp;
 
@@ -504,6 +569,19 @@ export function EmploiView() {
   }
 
   const displayedCount = ranked.length;
+  const matchFilterOn = loggedIn && matchOnly && canMatch;
+  const activeFilterCount =
+    Number(contract !== "tous") + Number(remoteOnly) + Number(matchFilterOn) + Number(daysOld !== JOB_MAX_AGE_DAYS);
+  const filterSummary: { key: string; icon: LucideIcon; label: string }[] = [
+    { key: "contrat", icon: Briefcase, label: contract === "tous" ? "Tous les contrats" : contract },
+    ...(remoteOnly ? [{ key: "remote", icon: Globe, label: "Remote" }] : []),
+    ...(matchFilterOn ? [{ key: "match", icon: Sparkles, label: `Match ≥ ${JOB_MATCH_MIN_SCORE}` }] : []),
+    {
+      key: "publie",
+      icon: Clock,
+      label: DAYS_FILTERS.find((item) => item.value === daysOld)?.label ?? `${daysOld} jours`,
+    },
+  ];
   const hasCvOptions = Boolean(uploadedCv) || cvs.length > 0;
 
   return (
@@ -639,66 +717,159 @@ export function EmploiView() {
           )}
         </form>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 hidden flex-wrap items-center gap-2 sm:flex">
+          <Briefcase className="h-4 w-4 text-navy/35" aria-label="Contrat" />
           {CONTRACTS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              disabled={pending}
-              onClick={() => setContract(item)}
-              className={cn(
-                "rounded-xl px-3 py-1.5 text-sm font-semibold transition-transform duration-brand ease-brand active:scale-[0.97] motion-reduce:transition-none disabled:opacity-60",
-                contract === item ? "bg-indigo-clair text-principale" : "text-navy/55 hover:bg-indigo-clair/70",
-              )}
-            >
+            <FilterChip key={item} active={contract === item} disabled={pending} onClick={() => setContract(item)}>
               {item === "tous" ? "Tous les contrats" : item}
-            </button>
+            </FilterChip>
           ))}
-          <button
-            type="button"
+          <FilterChip
+            active={remoteOnly}
             disabled={pending}
+            icon={Globe}
             onClick={() => setRemoteOnly((value) => !value)}
-            className={cn(
-              "rounded-xl px-3 py-1.5 text-sm font-semibold transition-transform duration-brand ease-brand active:scale-[0.97] motion-reduce:transition-none disabled:opacity-60",
-              remoteOnly ? "bg-indigo-clair text-principale" : "text-navy/55 hover:bg-indigo-clair/70",
-            )}
           >
             Remote uniquement
-          </button>
+          </FilterChip>
           {loggedIn ? (
-            <button
-              type="button"
+            <FilterChip
+              active={matchOnly && canMatch}
               disabled={pending || !canMatch}
+              icon={Sparkles}
               onClick={() => setMatchOnly((value) => !value)}
-              className={cn(
-                "rounded-xl px-3 py-1.5 text-sm font-semibold transition-transform duration-brand ease-brand active:scale-[0.97] motion-reduce:transition-none disabled:opacity-60",
-                matchOnly && canMatch ? "bg-indigo-clair text-principale" : "text-navy/55 hover:bg-indigo-clair/70",
-              )}
               title={!canMatch ? "Choisissez ou importez un CV avec un métier / des compétences" : undefined}
             >
               Match CV uniquement
               {canMatch ? ` (≥ ${JOB_MATCH_MIN_SCORE})` : ""}
-            </button>
+            </FilterChip>
           ) : null}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-navy/40">Publié</span>
+        <div className="mt-3 hidden flex-wrap items-center gap-2 sm:flex">
+          <span className="mr-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-navy/40">
+            <Clock className="h-3.5 w-3.5" aria-hidden />
+            Publié
+          </span>
           {DAYS_FILTERS.map((item) => (
-            <button
+            <FilterChip
               key={item.value}
-              type="button"
+              active={daysOld === item.value}
               disabled={pending}
               onClick={() => setDaysOld(item.value)}
-              className={cn(
-                "rounded-xl px-3 py-1.5 text-sm font-semibold transition-transform duration-brand ease-brand active:scale-[0.97] motion-reduce:transition-none disabled:opacity-60",
-                daysOld === item.value ? "bg-indigo-clair text-principale" : "text-navy/55 hover:bg-indigo-clair/70",
-              )}
             >
               {item.label}
-            </button>
+            </FilterChip>
           ))}
         </div>
+
+        {/* Mobile : bouton Filtres + résumé des filtres appliqués, chacun avec l'icône de son type. */}
+        <div className="mt-4 flex items-center gap-2 sm:hidden">
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-10 shrink-0 rounded-xl bg-indigo-clair px-3 text-principale shadow-none"
+            aria-haspopup="dialog"
+            onClick={() => setFiltersOpen(true)}
+          >
+            <SlidersHorizontal />
+            Filtres
+            {activeFilterCount ? (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-principale px-1.5 text-[11px] font-bold text-white">
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </Button>
+          <div className="scroll-row-mobile flex min-w-0 gap-1.5">
+            {filterSummary.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setFiltersOpen(true)}
+                  className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border border-gris bg-[#F8FAFC] px-2.5 text-xs font-medium text-navy/70"
+                >
+                  <Icon className="h-3.5 w-3.5 text-principale" aria-hidden />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetContent
+            side="bottom"
+            className="max-h-[88dvh] gap-0 overflow-y-auto rounded-t-[1.5rem] border-gris px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2"
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gris" aria-hidden />
+            <SheetHeader className="mb-4 text-left">
+              <SheetTitle className="flex items-center gap-2 font-display text-base">
+                <SlidersHorizontal className="h-4 w-4 text-principale" aria-hidden />
+                Filtrer les offres
+              </SheetTitle>
+              <SheetDescription className="text-xs text-navy/55">
+                Les filtres s&apos;appliquent directement aux résultats.
+              </SheetDescription>
+            </SheetHeader>
+
+            <FilterGroup icon={Briefcase} label="Type de contrat">
+              {CONTRACTS.map((item) => (
+                <FilterChip key={item} active={contract === item} disabled={pending} onClick={() => setContract(item)}>
+                  {item === "tous" ? "Tous les contrats" : item}
+                </FilterChip>
+              ))}
+            </FilterGroup>
+
+            <FilterGroup icon={Globe} label="Lieu de travail">
+              <FilterChip
+                active={remoteOnly}
+                disabled={pending}
+                icon={Globe}
+                onClick={() => setRemoteOnly((value) => !value)}
+              >
+                Remote uniquement
+              </FilterChip>
+            </FilterGroup>
+
+            {loggedIn ? (
+              <FilterGroup
+                icon={Sparkles}
+                label="Correspondance avec le CV"
+                hint={!canMatch ? "Choisissez ou importez un CV avec un métier / des compétences" : undefined}
+              >
+                <FilterChip
+                  active={matchOnly && canMatch}
+                  disabled={pending || !canMatch}
+                  icon={Sparkles}
+                  onClick={() => setMatchOnly((value) => !value)}
+                >
+                  Match CV uniquement
+                  {canMatch ? ` (≥ ${JOB_MATCH_MIN_SCORE})` : ""}
+                </FilterChip>
+              </FilterGroup>
+            ) : null}
+
+            <FilterGroup icon={Clock} label="Date de publication">
+              {DAYS_FILTERS.map((item) => (
+                <FilterChip
+                  key={item.value}
+                  active={daysOld === item.value}
+                  disabled={pending}
+                  onClick={() => setDaysOld(item.value)}
+                >
+                  {item.label}
+                </FilterChip>
+              ))}
+            </FilterGroup>
+
+            <Button type="button" className="mt-2 h-11 w-full rounded-xl shadow-brand" onClick={() => setFiltersOpen(false)}>
+              {pending ? <Loader2 className="animate-spin" /> : null}
+              Voir les offres
+            </Button>
+          </SheetContent>
+        </Sheet>
 
         {loggedIn && cv ? (
           <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-navy/45">
@@ -867,8 +1038,14 @@ export function EmploiView() {
                             "transition-transform duration-brand ease-brand hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none",
                           )}
                         >
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                          <div
+                            className={cn(
+                              "grid items-start gap-x-3 sm:gap-x-4",
+                              loggedIn ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-1",
+                            )}
+                          >
                             {loggedIn ? (
+                              <div className="shrink-0 sm:row-span-2">
                               <ScoreRing
                                 value={match.score}
                                 size={72}
@@ -881,11 +1058,20 @@ export function EmploiView() {
                                 </p>
                                 <p className="text-[9px] text-navy/45">match</p>
                               </ScoreRing>
+                              </div>
                             ) : null}
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0 self-center sm:self-start">
                               <div className="flex flex-wrap items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <h2 className="font-display text-lg font-bold text-navy">{job.title}</h2>
+                                  <h2 className="font-display text-lg font-bold text-navy">
+                                    <button
+                                      type="button"
+                                      className="text-left hover:text-principale"
+                                      onClick={() => (loggedIn ? setActiveId(job.id) : requireLogin())}
+                                    >
+                                      {job.title}
+                                    </button>
+                                  </h2>
                                   <p className="text-sm text-navy/65">
                                     {loggedIn ? job.company || "Entreprise confidentielle" : "Entreprise masquée"}
                                   </p>
@@ -894,6 +1080,9 @@ export function EmploiView() {
                                   {loggedIn ? job.source || "Source" : "Source masquée"}
                                 </Badge>
                               </div>
+                            </div>
+                            {/* Mobile : le titre reste à côté du cercle, le détail prend toute la largeur dessous. */}
+                            <div className={cn("min-w-0", loggedIn && "col-span-2 sm:col-span-1 sm:col-start-2")}>
                               <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-navy/50">
                                 <span className="inline-flex items-center gap-1">
                                   <MapPin className="h-3.5 w-3.5" />
@@ -907,25 +1096,6 @@ export function EmploiView() {
                                 {loggedIn && job.salary ? <span>{job.salary}</span> : null}
                                 {posted ? <span>{posted}</span> : null}
                               </p>
-                              {loggedIn ? (
-                                <p className="mt-2 line-clamp-2 text-sm text-navy/70">{job.summary}</p>
-                              ) : (
-                                <p className="mt-2 select-none text-sm text-navy/40 blur-[3px]">
-                                  Description de l&apos;offre réservée aux membres connectés.
-                                </p>
-                              )}
-                              {loggedIn && job.tags.length ? (
-                                <div className="mt-3 flex flex-wrap gap-1.5">
-                                  {job.tags.map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="rounded-full bg-[#F8FAFC] px-2.5 py-0.5 text-[11px] font-medium text-navy/70"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
                               <div className="mt-4 flex flex-wrap gap-2">
                                 <Button
                                   type="button"
@@ -969,11 +1139,6 @@ export function EmploiView() {
                                 >
                                   Préparer ma candidature
                                 </Button>
-                                {loggedIn && cv && !cv.id.startsWith("emploi-upload-") ? (
-                                  <Button asChild size="sm" variant="ghost" className="rounded-xl">
-                                    <Link href={`/cv/${cv.id}`}>Voir mon CV</Link>
-                                  </Button>
-                                ) : null}
                                 <Button
                                   type="button"
                                   size="sm"
@@ -1172,7 +1337,11 @@ function SavedJobsList({
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="font-display text-lg font-bold text-navy">{job.title}</h2>
+                <h2 className="font-display text-lg font-bold text-navy">
+                  <button type="button" className="text-left hover:text-principale" onClick={() => onView(job)}>
+                    {job.title}
+                  </button>
+                </h2>
                 <p className="text-sm text-navy/65">{job.company || "Entreprise confidentielle"}</p>
               </div>
               {job.source ? (
@@ -1199,7 +1368,6 @@ function SavedJobsList({
               {posted ? <span>{posted}</span> : null}
               {savedLabel ? <span>{savedLabel}</span> : null}
             </p>
-            {job.summary ? <p className="mt-2 line-clamp-2 text-sm text-navy/70">{job.summary}</p> : null}
             <div className="mt-4 flex flex-wrap gap-2">
               <Button type="button" size="sm" className="rounded-xl" onClick={() => onView(job)}>
                 Voir l&apos;offre

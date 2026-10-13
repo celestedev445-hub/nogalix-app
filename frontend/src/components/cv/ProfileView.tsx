@@ -334,9 +334,9 @@ export function ProfileView() {
 
   return (
     <div className="min-w-0 space-y-6 text-navy">
-      <div className="flex flex-wrap items-start gap-2">
+      <div className="flex items-start gap-2">
         <BackButton fallbackHref="/dashboard" className="mt-0.5 hidden xl:inline-flex" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-2xl font-bold title-logo sm:text-3xl">Mon profil</h1>
           <p className="mt-1 text-sm text-navy/65">Gérez vos informations et préférences.</p>
         </div>
@@ -373,7 +373,7 @@ export function ProfileView() {
         </div>
 
         <Tabs value={tab} onValueChange={(value) => setTab(value as ProfileTab)} className="mt-6">
-          <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-none bg-transparent p-0">
+          <TabsList className="scroll-row-mobile h-auto w-full flex-wrap justify-start gap-1 rounded-none bg-transparent p-0">
             <TabsTrigger value="informations" className={tabClass}>
               Informations
             </TabsTrigger>

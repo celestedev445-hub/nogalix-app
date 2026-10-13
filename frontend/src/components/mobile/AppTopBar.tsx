@@ -16,7 +16,7 @@ export function AppTopBar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 border-b border-gris/70 bg-[#F9FBFF]/92 pt-[env(safe-area-inset-top)] backdrop-blur-md",
+        "sticky top-0 z-40 border-b border-gris/70 bg-[#F9FBFF]/95 pt-[env(safe-area-inset-top)] backdrop-blur-md",
         className,
       )}
     >

@@ -169,7 +169,10 @@ export function LandingView() {
             </ul>
           </div>
           <div className="relative mt-2 min-w-0 lg:mt-0">
-            <HeroCarousel slides={HERO_SLIDES} />
+            {/* Masqué sur mobile : le hero s'arrête aux boutons et aux garanties. */}
+            <div className="hidden md:block">
+              <HeroCarousel slides={HERO_SLIDES} />
+            </div>
             {/* Le carrousel est décoratif (aria-hidden) : le texte des cartes reste lisible ici. */}
             <ul className="sr-only">
               {homeHighlights.map((item) => (

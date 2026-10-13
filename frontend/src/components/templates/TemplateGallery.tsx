@@ -93,7 +93,7 @@ export function TemplateGallery({
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
+        <div className="scroll-row-mobile flex flex-wrap gap-2">
           {templateFilters.map((item) => (
             <button
               key={item.id}

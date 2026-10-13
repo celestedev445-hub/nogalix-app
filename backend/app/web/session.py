@@ -2,7 +2,7 @@
 
 Le navigateur n'a jamais accès au jeton :
 - à la connexion (`/api/auth/login|register|google`), le jeton renvoyé par l'API est
-  retiré de la réponse et posé dans le cookie HttpOnly `authToken` ;
+  retiré de la réponse et posé dans le cookie HttpOnly `nogalix_session` ;
 - à chaque appel `/api/*`, le cookie est converti en en-tête `Authorization: Bearer` ;
 - sur une réponse 401 ou après `/api/auth/logout`, le cookie est effacé ;
 - les requêtes modifiantes venant d'un navigateur doivent provenir du site (CSRF).
@@ -27,7 +27,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import settings
 
-AUTH_COOKIE = "authToken"
+# Nom distinct de CBC (`authToken`) : les cookies localhost ne distinguent pas le port.
+AUTH_COOKIE = "nogalix_session"
 MAX_TOKEN_LENGTH = 2048
 ISSUE_PATHS = {"/api/auth/login", "/api/auth/register", "/api/auth/google"}
 LOGOUT_PATH = "/api/auth/logout"

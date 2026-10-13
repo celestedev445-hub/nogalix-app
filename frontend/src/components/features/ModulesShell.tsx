@@ -237,31 +237,30 @@ export function ModulesShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <ClientOnly>
-        {!lockViewport ? (
-          <AppTopBar
-            className="xl:hidden"
-            title={modulePageTitle(pathname)}
-            leading={
-              showBack ? (
-                <BackButton fallbackHref="/dashboard" label="" className="h-10 w-10 px-0" />
-              ) : (
-                <BrandLogo href="/dashboard" className="[&_img]:h-7" />
-              )
-            }
-            trailing={
-              <>
-                <NotificationBell />
-                <AccountMenu
-                  compact
-                  name={name}
-                  user={user}
-                  showAdmin={showAdmin}
-                  onLogout={() => void onLogout()}
-                />
-              </>
-            }
-          />
-        ) : null}
+        {/* Éditeur : la barre reste visible ; le retour passe par le bouton de l'éditeur (garde de sortie). */}
+        <AppTopBar
+          className="shrink-0 xl:hidden"
+          title={modulePageTitle(pathname)}
+          leading={
+            showBack && !lockViewport ? (
+              <BackButton fallbackHref="/dashboard" label="" className="h-10 w-10 px-0" />
+            ) : (
+              <BrandLogo href="/dashboard" className="[&_img]:h-7" />
+            )
+          }
+          trailing={
+            <>
+              <NotificationBell />
+              <AccountMenu
+                compact
+                name={name}
+                user={user}
+                showAdmin={showAdmin}
+                onLogout={() => void onLogout()}
+              />
+            </>
+          }
+        />
       </ClientOnly>
 
       <main
@@ -270,7 +269,7 @@ export function ModulesShell({ children }: { children: React.ReactNode }) {
           "site-inner min-w-0 overflow-x-clip",
           lockViewport
             ? "flex min-h-0 flex-1 flex-col overflow-hidden pb-4 pt-4"
-            : cn("pt-4 xl:pb-24 xl:pt-6", tabbarShown ? "pb-[calc(var(--app-tabbar-offset)+0.75rem)]" : "pb-8"),
+            : cn("pt-4 xl:pb-24 xl:pt-6", tabbarShown ? "pb-[calc(var(--app-tabbar-offset)+4.75rem)]" : "pb-8"),
         )}
       >
         {!lockViewport ? (

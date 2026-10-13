@@ -250,9 +250,9 @@ export function CvVoiceView() {
   if (!canVoice) {
     return (
       <div className="min-w-0 space-y-6">
-        <div className="flex flex-wrap items-start gap-2">
+        <div className="flex items-start gap-2">
           <BackButton fallbackHref="/cv" className="mt-0.5" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="font-display text-2xl font-bold title-logo sm:text-3xl">CV à la voix</h1>
             <p className="mt-1 max-w-2xl text-sm text-navy/65">
               L&apos;édition vocale est incluse à partir du plan Pro.
