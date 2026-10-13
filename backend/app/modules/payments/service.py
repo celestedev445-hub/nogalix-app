@@ -9,12 +9,19 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import update
+from sqlalchemy import and_, or_, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.modules.payments.keypay import KeyPayError, keypay
-from app.modules.payments.mesomb import MeSombError, guess_service, local_phone, mesomb
+from app.modules.payments.mesomb import (
+    MeSombError,
+    assert_country_enabled,
+    enabled_countries,
+    guess_service,
+    local_phone,
+    mesomb,
+)
 from app.modules.payments import mesomb_geo
 from app.modules.payments.models import (
     PAYMENT_CANCELLED,
@@ -30,8 +37,18 @@ from app.modules.users.models import Notification, User
 logger = logging.getLogger(__name__)
 
 ALLOWED_MONTHS = (1, 12)
-# Au-delà, un paiement resté en attente est considéré comme expiré (l'utilisateur n'a pas validé).
+# Au-delà, un paiement en attente que MeSomb ne connaît pas est clos (la demande n'est jamais partie).
 PENDING_TTL = timedelta(minutes=30)
+# Statuts locaux encore revérifiés chez MeSomb : il n'y a pas d'annulation côté opérateur,
+# le client a pu valider sur son téléphone après une annulation, une expiration ou une coupure.
+RECHECK_STATUSES = (PAYMENT_CANCELLED, PAYMENT_EXPIRED, PAYMENT_FAILED)
+# Réconciliation (comme payments:reconcile-mesomb de CBC).
+RECONCILE_PENDING_MIN_AGE = timedelta(minutes=2)
+RECONCILE_PENDING_MAX_AGE = timedelta(days=3)
+RECONCILE_CLOSED_MAX_AGE = timedelta(hours=2)
+RECONCILE_LIMIT = 50
+# Informations du paiement conservées dans `raw` (le reste est remplacé par la réponse MeSomb).
+META_KEY = "_meta"
 
 
 def utcnow() -> datetime:
@@ -69,6 +86,11 @@ def payment_config() -> dict[str, Any]:
         "card_provider": "keypay",
         "currency": settings.mesomb_currency or settings.keypay_currency or "XAF",
         "country": settings.mesomb_country or "CM",
+        "countries": [
+            str(mesomb_geo.COUNTRIES[c]["iso2"])
+            for c in (enabled_countries() or list(mesomb_geo.COUNTRIES))
+            if c in mesomb_geo.COUNTRIES
+        ],
         "yearly_discount_percent": int(settings.yearly_discount_percent or 0),
         "months": list(ALLOWED_MONTHS),
         "services": [
@@ -154,6 +176,10 @@ def create_checkout(
         raise HTTPException(status_code=422, detail={"message": exc.message, "errors": {"phone": [exc.message]}})
 
     geo = mesomb_geo.resolve_phone(phone or "", settings.mesomb_country or "CM")
+    try:
+        assert_country_enabled(geo)
+    except MeSombError as exc:
+        raise HTTPException(status_code=422, detail={"message": exc.message, "errors": {"phone": [exc.message]}})
     chosen = mesomb_geo.map_method_to_service(service or "") or guess_service(phone or "") or ""
     if not chosen and geo.get("services"):
         chosen = str(geo["services"][0])
@@ -176,6 +202,10 @@ def create_checkout(
     db.flush()
 
     amount = price_for(plan, months)
+    platform_currency = settings.mesomb_currency or "XAF"
+    local_currency = str(geo.get("currency") or platform_currency).upper()
+    # Enregistré AVANT l'appel MeSomb : si la réponse se perd, le webhook et la réconciliation
+    # retrouvent la ligne par sa référence NGX-… et activent ce que le client a payé.
     payment = Payment(
         reference=_new_reference(),
         user_id=user.id,
@@ -184,11 +214,18 @@ def create_checkout(
         plan_name=plan.name,
         months=months,
         amount=amount,
-        currency=settings.mesomb_currency or "XAF",
+        currency=platform_currency,
         provider="mesomb",
         service=chosen,
         phone=payer,
         status=PAYMENT_PENDING,
+        raw={
+            META_KEY: {
+                "country": geo.get("country"),
+                "local_currency": local_currency,
+                "conversion": local_currency != platform_currency.upper(),
+            }
+        },
     )
     db.add(payment)
     db.commit()
@@ -206,6 +243,17 @@ def create_checkout(
             customer_name=user.name,
         )
     except MeSombError as exc:
+        if exc.connection_error:
+            # Issue inconnue : la demande a pu partir vers le téléphone du client.
+            # On reste en attente ; le webhook, le suivi et la réconciliation trancheront.
+            meta = dict(_meta(payment))
+            meta["init_uncertain"] = True
+            payment.raw = {**(payment.raw or {}), META_KEY: meta}
+            db.commit()
+            db.refresh(payment)
+            logger.warning("MeSomb collect sans réponse : %s laissé en attente", payment.reference)
+            return payment
+        # Refus explicite de MeSomb : aucune transaction n'a été créée.
         payment.status = PAYMENT_FAILED
         payment.failure_reason = exc.message
         db.commit()
@@ -218,6 +266,57 @@ def create_checkout(
     db.commit()
     db.refresh(payment)
     return payment
+
+
+def _meta(payment: Payment) -> dict[str, Any]:
+    raw = payment.raw if isinstance(payment.raw, dict) else {}
+    meta = raw.get(META_KEY)
+    return meta if isinstance(meta, dict) else {}
+
+
+def _int_amount(value: Any) -> Optional[int]:
+    if value is None or value == "" or isinstance(value, (bool, dict, list)):
+        return None
+    try:
+        return int(round(float(str(value).replace(",", "."))))
+    except ValueError:
+        return None
+
+
+def _amount_mismatch(payment: Payment, result: dict[str, Any]) -> Optional[str]:
+    """Contrôle du montant confirmé par MeSomb avant activation (comme CBC). Message si refus."""
+    meta = _meta(payment)
+    expected = int(payment.amount)
+    expected_currency = (payment.currency or settings.mesomb_currency or "XAF").upper()
+    confirmed_currency = str(result.get("currency") or "").upper()
+    amount = _int_amount(result.get("amount"))
+    trxamount = _int_amount(result.get("trxamount"))
+    fees = _int_amount(result.get("fees"))
+    bases = [value for value in (amount, trxamount) if value is not None]
+    candidates = set(bases)
+    if fees:
+        candidates.update(base + fees for base in bases)
+    context = (payment.reference, expected, expected_currency, confirmed_currency, sorted(candidates))
+
+    if not candidates:
+        logger.error("MeSomb : montant absent, activation refusée %s", context)
+        return "Le montant confirmé par MeSomb est introuvable."
+    if not confirmed_currency or confirmed_currency == expected_currency:
+        if expected not in candidates:
+            logger.error("MeSomb : montant divergent, activation refusée %s", context)
+            return "Le montant confirmé par MeSomb ne correspond pas au montant attendu."
+        return None
+    if not meta.get("conversion"):
+        logger.error("MeSomb : devise divergente, activation refusée %s", context)
+        return "La devise confirmée par MeSomb ne correspond pas à la devise attendue."
+    local_currency = str(meta.get("local_currency") or "").upper()
+    if local_currency and confirmed_currency != local_currency:
+        logger.error("MeSomb : devise locale inattendue, activation refusée %s", context)
+        return "La devise confirmée par MeSomb ne correspond pas à la devise du pays du payeur."
+    if (amount or trxamount or 0) <= 0:
+        logger.error("MeSomb : montant local invalide, activation refusée %s", context)
+        return "Le montant confirmé par MeSomb ne correspond pas au montant attendu."
+    return None
 
 
 def _paid_plan(db: Session, plan_slug: str) -> Plan:
@@ -321,6 +420,14 @@ def _create_card_checkout(db: Session, user: User, *, plan_slug: str, months: in
 
 def _apply_result(db: Session, payment: Payment, result: dict[str, Any]) -> None:
     new_status = result.get("status") or PAYMENT_PENDING
+    if new_status == "refunded":
+        new_status = PAYMENT_CANCELLED
+    if new_status == PAYMENT_COMPLETED and payment.status != PAYMENT_COMPLETED and payment.provider == "mesomb":
+        refused = _amount_mismatch(payment, result)
+        if refused:
+            # Pas d'activation ; le paiement reste tel quel pour une vérification manuelle.
+            payment.failure_reason = refused
+            return
     if new_status == PAYMENT_COMPLETED:
         activate_payment(db, payment)
     if result.get("provider_reference"):
@@ -331,6 +438,9 @@ def _apply_result(db: Session, payment: Payment, result: dict[str, Any]) -> None
             raw.setdefault("clientSecret", result["client_secret"])
         if result.get("stripe_publishable_key"):
             raw.setdefault("stripePublishableKey", result["stripe_publishable_key"])
+        meta = _meta(payment)
+        if meta:
+            raw[META_KEY] = meta
         payment.raw = raw
     if new_status == PAYMENT_COMPLETED:
         return
@@ -405,32 +515,100 @@ def _send_receipt(user: User, payment: Payment) -> None:
         logger.exception("Envoi du reçu impossible (%s)", payment.reference)
 
 
-def refresh_payment(db: Session, payment: Payment, *, commit: bool = True) -> Payment:
-    """Relit le statut auprès du prestataire si le paiement est encore en attente."""
-    if payment.status != PAYMENT_PENDING:
+def refresh_payment(
+    db: Session,
+    payment: Payment,
+    *,
+    commit: bool = True,
+    recheck_closed: bool = False,
+) -> Payment:
+    """Relit le statut auprès du prestataire.
+
+    Par défaut seuls les paiements en attente sont relus. Avec `recheck_closed`, un paiement
+    MeSomb annulé / expiré / échoué localement est aussi relu : seul un succès le remplace
+    (MeSomb n'a pas d'annulation, le client a pu valider sur son téléphone entre-temps).
+    """
+    if payment.status == PAYMENT_COMPLETED:
         return payment
-    result = None
     if payment.provider == "keypay":
-        lookup = payment.provider_reference or payment.reference
+        if payment.status != PAYMENT_PENDING:
+            return payment
+        result = None
         try:
-            result = keypay.get_status(lookup)
+            result = keypay.get_status(payment.provider_reference or payment.reference)
         except KeyPayError as exc:
             logger.warning("Statut KeyPay indisponible pour %s : %s", payment.reference, exc.message)
+        if result:
+            _apply_result(db, payment, result)
+        if payment.status == PAYMENT_PENDING and _aware(payment.created_at) < utcnow() - PENDING_TTL:
+            payment.status = PAYMENT_EXPIRED
+            payment.failure_reason = "Délai de validation dépassé."
     else:
+        if payment.status != PAYMENT_PENDING and not (recheck_closed and payment.status in RECHECK_STATUSES):
+            return payment
+        result = None
+        reachable = True
         try:
             result = mesomb.transaction(payment.reference, payment.provider_reference)
         except MeSombError as exc:
+            reachable = False
             logger.warning("Statut MeSomb indisponible pour %s : %s", payment.reference, exc.message)
-            result = None
-    if result:
-        _apply_result(db, payment, result)
-    if payment.status == PAYMENT_PENDING and _aware(payment.created_at) < utcnow() - PENDING_TTL:
-        payment.status = PAYMENT_EXPIRED
-        payment.failure_reason = "Délai de validation dépassé."
+        if result:
+            # Un statut local terminal n'est remplacé que par un succès.
+            if payment.status == PAYMENT_PENDING or result.get("status") == PAYMENT_COMPLETED:
+                _apply_result(db, payment, result)
+        elif (
+            reachable
+            and payment.status == PAYMENT_PENDING
+            and _aware(payment.created_at) < utcnow() - PENDING_TTL
+        ):
+            # MeSomb ne connaît pas la transaction : la demande n'est jamais partie.
+            payment.status = PAYMENT_EXPIRED
+            payment.failure_reason = "La demande de paiement n'a pas abouti. Aucun montant n'a été débité."
     if commit:
         db.commit()
         db.refresh(payment)
     return payment
+
+
+def reconcile_pending_payments(db: Session, limit: int = RECONCILE_LIMIT) -> dict[str, int]:
+    """Filet de sécurité si le webhook n'arrive pas ou si le client a fermé la page :
+    relit chez MeSomb les paiements en attente et les clôtures récentes, active ce qui a été payé."""
+    if not settings.mesomb_enabled:
+        return {"checked": 0, "updated": 0, "errors": 0}
+    now = utcnow()
+    candidates = (
+        db.query(Payment)
+        .filter(
+            Payment.provider == "mesomb",
+            or_(
+                and_(
+                    Payment.status == PAYMENT_PENDING,
+                    Payment.created_at <= now - RECONCILE_PENDING_MIN_AGE,
+                    Payment.created_at >= now - RECONCILE_PENDING_MAX_AGE,
+                ),
+                and_(
+                    Payment.status.in_(RECHECK_STATUSES),
+                    Payment.created_at >= now - RECONCILE_CLOSED_MAX_AGE,
+                ),
+            ),
+        )
+        .order_by(Payment.created_at)
+        .limit(limit)
+        .all()
+    )
+    updated = 0
+    errors = 0
+    for payment in candidates:
+        before = payment.status
+        try:
+            if refresh_payment(db, payment, recheck_closed=True).status != before:
+                updated += 1
+        except Exception:
+            errors += 1
+            db.rollback()
+            logger.exception("Réconciliation MeSomb : vérification impossible (%s)", payment.reference)
+    return {"checked": len(candidates), "updated": updated, "errors": errors}
 
 
 def cancel_payment(db: Session, payment: Payment) -> Payment:
@@ -475,7 +653,7 @@ def handle_webhook(db: Session, payload: dict[str, Any]) -> Optional[Payment]:
     if pk and not payment.provider_reference:
         payment.provider_reference = str(pk)
     # On ne fait jamais confiance au contenu du webhook : on relit le statut chez MeSomb.
-    return refresh_payment(db, payment)
+    return refresh_payment(db, payment, recheck_closed=True)
 
 
 def handle_keypay_webhook(db: Session, payload: dict[str, Any]) -> Optional[Payment]:

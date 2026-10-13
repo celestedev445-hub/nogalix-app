@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "@/platform/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -34,13 +34,14 @@ import {
   formatPhoneForMesomb,
   mesombCountryByIso2,
   mesombDialCountry,
+  MESOMB_PHONE_COUNTRIES,
   MESOMB_SERVICE_LABELS,
   mapMethodToService,
   ussdHint,
   type MesombService,
 } from "@/lib/mesombCountries";
 import { StripeCardPayment } from "@/components/payment/StripeCardPayment";
-import { MesombPhoneInput } from "@/components/payment/MesombPhoneInput";
+import PhoneInput from "@/components/ui/PhoneInput";
 import { MesombServicePicker } from "@/components/payment/MesombServicePicker";
 import { translateMesombFailure } from "@/lib/mesombErrors";
 import {
@@ -57,6 +58,8 @@ import {
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_MAX_MS = 3 * 60 * 1000;
+
+const MESOMB_PREFERRED_COUNTRIES = ["cm", "ci", "sn", "cd", "ga", "bj", "bf", "ke", "ug"];
 
 function checkoutPhoneFromProfile(defaultPhone: string, fallbackIso: string) {
   const filled = phoneToInputValue(defaultPhone);
@@ -207,6 +210,14 @@ export function MobileMoneyCheckout({
   const discount = config.yearly_discount_percent ?? 20;
   const price = plan ? planPriceFor(plan.price, months, discount) : 0;
   const fullYear = plan ? plan.price * 12 : 0;
+  // Pays proposés : ceux couverts par MeSomb ET activés côté serveur (MESOMB_COUNTRIES).
+  const phoneCountries = useMemo(() => {
+    const enabled = (config.countries ?? []).map((iso) => iso.toLowerCase());
+    const list = (MESOMB_PHONE_COUNTRIES as readonly string[]).filter(
+      (iso) => !enabled.length || enabled.includes(iso),
+    );
+    return list.length ? list : [...MESOMB_PHONE_COUNTRIES];
+  }, [config.countries]);
   const phoneCountry = mesombCountryByIso2(countryIso2) ?? detectMesombCountry(phone, countryIso2);
   const phoneValid = isValidMesombMobile(phone, phoneCountry.iso2);
   const phoneLocal = formatPhoneForMesomb(phone, phoneCountry.iso2);
@@ -551,11 +562,16 @@ export function MobileMoneyCheckout({
             <div className="relative z-20 overflow-visible">
               <Label htmlFor="momo-phone">Votre numéro {MESOMB_SERVICE_LABELS[service]}</Label>
               <div className="mt-1">
-                <MesombPhoneInput
+                {/* Même champ que le profil, limité aux pays couverts par MeSomb. */}
+                <PhoneInput
                   key={phoneInputKey}
+                  id="momo-phone"
                   value={phone}
                   onChange={onPhoneChange}
-                  country={countryIso2}
+                  country={phoneCountries.includes(countryIso2) ? countryIso2 : phoneCountries[0]}
+                  onlyCountries={phoneCountries}
+                  preferredCountries={MESOMB_PREFERRED_COUNTRIES}
+                  dropdownClassName="!z-[80]"
                 />
               </div>
               {phoneComplete && !phoneValid ? (

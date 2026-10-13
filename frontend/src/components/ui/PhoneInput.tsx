@@ -14,6 +14,13 @@ type PhoneInputProps = {
   onChange?: (value: string, data?: CountryData) => void;
   country?: string;
   autoFocus?: boolean;
+  /** Identifiant du champ (relié au <Label htmlFor>). */
+  id?: string;
+  /** Limite la liste des pays (ex. pays couverts par le paiement Mobile Money). */
+  onlyCountries?: string[];
+  preferredCountries?: string[];
+  /** Classe de la liste déroulante (z-index dans une modale, etc.). */
+  dropdownClassName?: string;
 };
 
 export default function PhoneInput({
@@ -21,6 +28,10 @@ export default function PhoneInput({
   onChange,
   country = "fr",
   autoFocus = false,
+  id = "phone",
+  onlyCountries,
+  preferredCountries = ["fr", "be", "ca"],
+  dropdownClassName,
 }: PhoneInputProps) {
   const [selectedCountry, setSelectedCountry] = useState(country.toLowerCase());
 
@@ -41,16 +52,17 @@ export default function PhoneInput({
         onChange?.(nextValue, data && typeof data === "object" ? (data as CountryData) : undefined);
       }}
       enableLongNumbers
-      preferredCountries={["fr", "be", "ca"]}
+      onlyCountries={onlyCountries}
+      preferredCountries={preferredCountries}
       inputProps={{
-        name: "phone",
-        id: "phone",
+        name: id,
+        id,
         required: false,
         autoFocus,
       }}
       containerClass="phone-container"
       inputClass="phone-input"
-      dropdownClass="phone-dropdown"
+      dropdownClass={dropdownClassName ? `phone-dropdown ${dropdownClassName}` : "phone-dropdown"}
     />
   );
 }

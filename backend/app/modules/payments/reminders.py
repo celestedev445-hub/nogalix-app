@@ -15,7 +15,13 @@ from datetime import timedelta
 from sqlalchemy import update
 
 from app.core.database import SessionLocal
-from app.modules.payments.service import _aware, expire_plan_if_needed, send_plan_reminder_email, utcnow
+from app.modules.payments.service import (
+    _aware,
+    expire_plan_if_needed,
+    reconcile_pending_payments,
+    send_plan_reminder_email,
+    utcnow,
+)
 from app.modules.plans.models import Plan
 from app.modules.users.models import Notification, User
 
@@ -108,4 +114,33 @@ def _loop(stop: threading.Event) -> None:
 def start_plan_reminders() -> threading.Event:
     stop = threading.Event()
     threading.Thread(target=_loop, args=(stop,), name="plan-reminders", daemon=True).start()
+    return stop
+
+
+RECONCILE_INTERVAL_SECONDS = 5 * 60
+
+
+def _reconcile_loop(stop: threading.Event) -> None:
+    """Toutes les 5 minutes, relit chez MeSomb les paiements restés en attente (webhook perdu,
+    page fermée) et les clôtures récentes, comme payments:reconcile-mesomb de CBC."""
+    if stop.wait(60):
+        return
+    while True:
+        db = SessionLocal()
+        try:
+            result = reconcile_pending_payments(db)
+            if result["updated"] or result["errors"]:
+                logger.info("Réconciliation MeSomb : %s", result)
+        except Exception:
+            logger.exception("Réconciliation MeSomb en échec")
+            db.rollback()
+        finally:
+            db.close()
+        if stop.wait(RECONCILE_INTERVAL_SECONDS):
+            return
+
+
+def start_payment_reconciliation() -> threading.Event:
+    stop = threading.Event()
+    threading.Thread(target=_reconcile_loop, args=(stop,), name="mesomb-reconcile", daemon=True).start()
     return stop

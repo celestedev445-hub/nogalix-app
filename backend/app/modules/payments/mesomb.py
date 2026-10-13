@@ -45,11 +45,14 @@ class MeSombError(Exception):
         *,
         status_code: Optional[int] = None,
         code: Optional[str] = None,
+        connection_error: bool = False,
     ):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
         self.code = code
+        # Réseau / délai dépassé : l'issue chez MeSomb est inconnue (la demande a pu partir).
+        self.connection_error = connection_error
 
 
 def local_phone(raw: str) -> str:
@@ -58,6 +61,21 @@ def local_phone(raw: str) -> str:
     if not mesomb_geo.is_valid_local_account(geo):
         raise MeSombError("Numéro Mobile Money invalide pour ce pays.")
     return mesomb_geo.payer_account(geo)
+
+
+def enabled_countries() -> list[str]:
+    """Pays activés sur l'application MeSomb (MESOMB_COUNTRIES) ; vide = tous ceux de mesomb_geo."""
+    raw = settings.mesomb_countries or ""
+    return [c.strip().upper() for c in raw.split(",") if c.strip()]
+
+
+def assert_country_enabled(geo: dict[str, Any]) -> None:
+    enabled = enabled_countries()
+    if enabled and str(geo.get("country") or "").upper() not in enabled:
+        raise MeSombError(
+            f"Le paiement Mobile Money n'est pas encore disponible pour les numéros {geo.get('name') or 'de ce pays'}. "
+            "Utilisez un numéro d'un autre pays couvert."
+        )
 
 
 def guess_service(phone: str) -> Optional[str]:
@@ -85,6 +103,8 @@ def map_status(status: str) -> str:
         return "cancelled"
     if s == "expired":
         return "expired"
+    if s == "refunded":
+        return "refunded"
     if s in {"pending", "initiated", "processing"}:
         return "pending"
     return "pending"
@@ -111,7 +131,8 @@ class MeSombClient:
         self.locale = (settings.mesomb_locale or "").strip("/")
         self.language = settings.mesomb_language or "fr"
         self.version = settings.mesomb_api_version or "v1.1"
-        self.timeout = max(15, int(settings.mesomb_timeout or 120))
+        # Plafonné à 70 s comme CBC : un proxy (Cloudflare) coupe les requêtes à 100 s.
+        self.timeout = min(70, max(15, int(settings.mesomb_timeout or 60)))
         self.connect_timeout = max(5, int(getattr(settings, "mesomb_connect_timeout", 15) or 15))
 
     def _uses_bearer(self) -> bool:
@@ -248,8 +269,9 @@ class MeSombClient:
         except httpx.HTTPError as exc:
             logger.error("MeSomb injoignable (%s %s) : %s", method, url, exc)
             raise MeSombError(
-                "Impossible de joindre l'API MeSomb. Vérifiez votre connexion internet, pare-feu ou VPN.",
+                "Le service de paiement ne répond pas pour le moment. Réessayez dans quelques instants.",
                 status_code=503,
+                connection_error=True,
             ) from exc
 
         try:
@@ -294,6 +316,7 @@ class MeSombClient:
         if not mesomb_geo.is_valid_local_account(geo):
             raise MeSombError("Un numéro de téléphone Mobile Money valide est requis.")
         payer = mesomb_geo.payer_account(geo)
+        assert_country_enabled(geo)
         if not mapped or not mesomb_geo.country_supports_service(geo["country"], mapped):
             raise MeSombError(f"L'opérateur n'est pas disponible au {geo['name']} via MeSomb.")
 
@@ -309,25 +332,28 @@ class MeSombClient:
             "amount_currency": currency,
             "fees": True,
             "conversion": conversion,
+            # Comme CBC : la référence NGX-… part en `reference` (renvoyée dans data.object.reference
+            # des webhooks) et en en-tête X-MeSomb-TrxID ; la description va dans `message`.
             "trxID": reference,
-            "reference": description,
+            "reference": reference,
+            "message": description,
             "products": [{"name": description, "quantity": 1, "amount": int(amount)}],
         }
         if mapped == "WAVE":
             redirect = (settings.frontend_url or "").rstrip("/")
             if redirect:
                 body["redirect"] = redirect
-        if customer_email:
-            parts = (customer_name or "").strip().split(None, 1)
-            customer = {
-                "email": customer_email,
-                "first_name": parts[0] if parts else "",
-                "last_name": parts[1] if len(parts) > 1 else "",
-                "country": geo["country"],
-            }
-            body["customer"] = {k: v for k, v in customer.items() if v}
-            if "email" not in body["customer"]:
-                body.pop("customer", None)
+        # MeSomb exige au moins le téléphone ou l'e-mail du client : le numéro payeur est toujours fourni.
+        msisdn = mesomb_geo.msisdn(geo)
+        parts = (customer_name or "").strip().split(None, 1)
+        customer = {
+            "phone": f"+{msisdn}" if msisdn else "",
+            "email": customer_email or "",
+            "first_name": parts[0] if parts else "",
+            "last_name": parts[1] if len(parts) > 1 else (parts[0] if parts else ""),
+            "country": geo["country"],
+        }
+        body["customer"] = {k: v for k, v in customer.items() if v}
 
         logger.info(
             "MeSomb POST /payment/collect %s amount=%s service=%s country=%s mode=%s",
@@ -437,6 +463,11 @@ class MeSombClient:
             "provider_reference": str(tx.get("pk") or tx.get("id") or "") or None,
             "message": message if isinstance(message, str) else None,
             "code": explained["code"],
+            # Montants confirmés par MeSomb : contrôlés avant toute activation.
+            "amount": tx.get("amount"),
+            "trxamount": tx.get("trxamount"),
+            "fees": tx.get("fees", tx.get("fee")),
+            "currency": tx.get("currency"),
             "raw": tx or (raw if isinstance(raw, dict) else {}),
         }
 

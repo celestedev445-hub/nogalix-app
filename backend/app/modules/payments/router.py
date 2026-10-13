@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session, joinedload
 
@@ -111,7 +112,8 @@ def show(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    payment = service.refresh_payment(db, _own_payment(db, user, reference))
+    # Relit aussi un paiement annulé / expiré : le client a pu valider sur son téléphone entre-temps.
+    payment = service.refresh_payment(db, _own_payment(db, user, reference), recheck_closed=True)
     return {"data": payment.to_dict(), "user": _me_payload(db, user)}
 
 
@@ -143,7 +145,9 @@ async def webhook(
         # Le statut est toujours relu chez MeSomb (appel réseau) : hors de la boucle du serveur.
         await run_in_threadpool(service.handle_webhook, db, payload)
     except Exception:
+        # Erreur passagère (base de données…) : 500 pour que MeSomb renvoie l'évènement.
         logger.exception("Webhook MeSomb : erreur de traitement")
+        return JSONResponse(status_code=500, content={"received": False})
     return {"received": True}
 
 

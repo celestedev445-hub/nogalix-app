@@ -80,9 +80,11 @@ class Settings(BaseSettings):
     mesomb_api_version: str = "v1.1"
     mesomb_country: str = "CM"
     mesomb_currency: str = "XAF"
-    mesomb_timeout: int = 120
+    mesomb_timeout: int = 60
     mesomb_connect_timeout: int = 15
     mesomb_collect_mode: str = "asynchronous"
+    # Pays activés sur l'application MeSomb (même liste par défaut que CBC). Vide = tous.
+    mesomb_countries: str = "CM,BF,BJ,CD,CG,GA,CI,ZM,KE,RW,SL,SN,UG"
     mesomb_webhook_secret: str = ""
     mesomb_webhook_url: str = ""
     # Remise (en %) sur la souscription annuelle (12 mois)

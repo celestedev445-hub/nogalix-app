@@ -1025,7 +1025,7 @@ export function EmploiView() {
                 </section>
               ) : (
                 <>
-                  <div className="grid gap-4">
+                  <div className="grid gap-4 xl:grid-cols-2">
                     {ranked.map(({ job, match }) => {
                       const saved = savedIds.includes(job.id);
                       const posted = formatPostedAt(job.postedAt);
@@ -1076,9 +1076,27 @@ export function EmploiView() {
                                     {loggedIn ? job.company || "Entreprise confidentielle" : "Entreprise masquée"}
                                   </p>
                                 </div>
-                                <Badge variant="secondary" className="rounded-full">
-                                  {loggedIn ? job.source || "Source" : "Source masquée"}
-                                </Badge>
+                                {/* Mobile et 2 colonnes (xl) : « Sauvegarder » devient une icône sur la ligne de l'origine de l'offre. */}
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="secondary" className="rounded-full">
+                                    {loggedIn ? job.source || "Source" : "Source masquée"}
+                                  </Badge>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 rounded-xl sm:hidden xl:inline-flex"
+                                    aria-label={saved ? "Offre enregistrée" : "Sauvegarder l'offre"}
+                                    aria-pressed={saved}
+                                    onClick={() => onToggleSave(job)}
+                                  >
+                                    {saved ? (
+                                      <BookmarkCheck className="h-4 w-4 text-principale" />
+                                    ) : (
+                                      <Bookmark className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                             {/* Mobile : le titre reste à côté du cercle, le détail prend toute la largeur dessous. */}
@@ -1110,7 +1128,7 @@ export function EmploiView() {
                                   <Button
                                     size="sm"
                                     variant="secondary"
-                                    className="rounded-xl bg-indigo-clair text-principale shadow-none"
+                                    className="hidden rounded-xl bg-indigo-clair text-principale shadow-none sm:inline-flex"
                                     asChild
                                   >
                                     <a href={job.url} target="_blank" rel="noreferrer">
@@ -1123,7 +1141,7 @@ export function EmploiView() {
                                     type="button"
                                     size="sm"
                                     variant="secondary"
-                                    className="rounded-xl bg-indigo-clair text-principale shadow-none"
+                                    className="hidden rounded-xl bg-indigo-clair text-principale shadow-none sm:inline-flex"
                                     onClick={requireLogin}
                                   >
                                     <Lock className="h-3.5 w-3.5" />
@@ -1134,7 +1152,7 @@ export function EmploiView() {
                                   type="button"
                                   size="sm"
                                   variant="ghost"
-                                  className="rounded-xl"
+                                  className="rounded-xl max-sm:bg-indigo-clair max-sm:text-principale"
                                   onClick={() => (loggedIn ? openCandidature(job) : requireLogin())}
                                 >
                                   Préparer ma candidature
@@ -1143,7 +1161,7 @@ export function EmploiView() {
                                   type="button"
                                   size="sm"
                                   variant="ghost"
-                                  className="rounded-xl"
+                                  className="hidden rounded-xl sm:inline-flex xl:hidden"
                                   onClick={() => onToggleSave(job)}
                                 >
                                   {saved ? (
@@ -1299,7 +1317,7 @@ function SavedJobsList({
     );
   }
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 xl:grid-cols-2">
       <p className="text-sm text-navy/55">
         {items.length} offre{items.length > 1 ? "s" : ""} enregistrée{items.length > 1 ? "s" : ""}
       </p>
@@ -1344,11 +1362,23 @@ function SavedJobsList({
                 </h2>
                 <p className="text-sm text-navy/65">{job.company || "Entreprise confidentielle"}</p>
               </div>
-              {job.source ? (
-                <Badge variant="secondary" className="rounded-full">
-                  {job.source}
-                </Badge>
-              ) : null}
+              <div className="flex items-center gap-1">
+                {job.source ? (
+                  <Badge variant="secondary" className="rounded-full">
+                    {job.source}
+                  </Badge>
+                ) : null}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-xl sm:hidden xl:inline-flex"
+                  aria-label="Retirer des offres enregistrées"
+                  onClick={() => onRemove(job)}
+                >
+                  <BookmarkCheck className="h-4 w-4 text-principale" />
+                </Button>
+              </div>
             </div>
             <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-navy/50">
               {job.location ? (
@@ -1373,17 +1403,34 @@ function SavedJobsList({
                 Voir l&apos;offre
               </Button>
               {job.url ? (
-                <Button size="sm" variant="secondary" className="rounded-xl bg-indigo-clair text-principale shadow-none" asChild>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="hidden rounded-xl bg-indigo-clair text-principale shadow-none sm:inline-flex"
+                  asChild
+                >
                   <a href={job.url} target="_blank" rel="noreferrer">
                     <ExternalLink className="h-3.5 w-3.5" />
                     Source
                   </a>
                 </Button>
               ) : null}
-              <Button type="button" size="sm" variant="ghost" className="rounded-xl" onClick={() => openCandidature(job)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="rounded-xl max-sm:bg-indigo-clair max-sm:text-principale"
+                onClick={() => openCandidature(job)}
+              >
                 Préparer ma candidature
               </Button>
-              <Button type="button" size="sm" variant="ghost" className="rounded-xl" onClick={() => onRemove(job)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="hidden rounded-xl sm:inline-flex xl:hidden"
+                onClick={() => onRemove(job)}
+              >
                 <BookmarkCheck className="h-4 w-4 text-principale" />
                 Retirer
               </Button>

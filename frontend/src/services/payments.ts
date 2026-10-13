@@ -11,6 +11,8 @@ export type PaymentConfig = {
   card_provider?: string;
   currency: string;
   country: string;
+  /** Pays (iso2) activés sur l'application MeSomb. */
+  countries?: string[];
   yearly_discount_percent: number;
   months: number[];
   services: { id: PaymentService; label: string }[];
