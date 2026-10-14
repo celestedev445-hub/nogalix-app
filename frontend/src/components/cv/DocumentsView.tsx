@@ -370,7 +370,7 @@ export function DocumentsView() {
           <p className="text-sm text-navy/50">{visible.length} document{visible.length > 1 ? "s" : ""}</p>
         </div>
 
-        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="app-scroll-panel nogalix-scrollbar grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.length === 0 && loadingDocs && !loadedDocs ? (
             <div className="col-span-full flex items-center justify-center gap-2 rounded-xl bg-[#F8FAFC] px-4 py-10 text-sm text-navy/55">
               <Loader2 className="h-4 w-4 animate-spin" />

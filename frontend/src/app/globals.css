@@ -31,6 +31,8 @@
     --page-maxw: 1580px;
     --page-gutter: 1rem;
     --app-tabbar-offset: 0px;
+    /* Hauteur de la barre de menu du haut (mobile : AppTopBar, xl : barre flottante). */
+    --app-topbar-height: calc(3rem + env(safe-area-inset-top, 0px));
     --sat: env(safe-area-inset-top, 0px);
     --sab: env(safe-area-inset-bottom, 0px);
   }
@@ -54,6 +56,10 @@
   @media (min-width: 1280px) {
     html.has-app-tabbar[data-tabbar-bp="xl"] {
       --app-tabbar-offset: 0px;
+    }
+
+    :root {
+      --app-topbar-height: 4.25rem;
     }
   }
 
@@ -117,6 +123,8 @@
   body {
     @apply bg-background text-foreground antialiased;
     overflow-x: clip;
+    /* Pas de rebond élastique : les barres de navigation ne bougent jamais. */
+    overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -243,6 +251,17 @@
       grid-template-columns: repeat(auto-fill, minmax(200px, 240px));
       gap: 1rem;
     }
+  }
+
+  /* Liste qui défile en interne : hauteur de l'écran moins les barres de menu. */
+  .app-scroll-panel {
+    max-height: calc(100dvh - var(--app-topbar-height) - var(--app-tabbar-offset) - 2rem);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    /* Laisse de la place aux ombres des cartes, que le défilement rognerait. */
+    margin: -0.375rem;
+    padding: 0.375rem;
   }
 
   /* Rangée d'onglets / filtres : une seule ligne qui défile sur mobile au lieu de passer à la ligne. */

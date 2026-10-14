@@ -73,7 +73,7 @@ export function CvListView() {
             </Button>
           </div>
         ) : (
-        <div className="cv-card-grid">
+        <div className="cv-card-grid app-scroll-panel nogalix-scrollbar">
           {items.map((cv) => (
             <CvCard
                 key={cv.id}

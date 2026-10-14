@@ -66,7 +66,7 @@ export function ParallaxScrollColumn({
       ) : null}
       <div
         ref={scrollerRef}
-          className="nogalix-scrollbar relative z-[1] h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
+          className="nogalix-scrollbar relative z-[1] h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]"
       >
         <div
           className={cn(contentClassName)}

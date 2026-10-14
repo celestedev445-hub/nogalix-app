@@ -80,7 +80,10 @@ function useCompactWidth(threshold: number) {
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
-    const apply = (width: number) => setCompact(width < threshold);
+    // Hystérésis : passer en icônes change la hauteur (donc la barre de défilement et la
+    // largeur) ; sans marge, la colonne alterne sans fin entre les deux modes.
+    const apply = (width: number) =>
+      setCompact((current) => (current ? width < threshold + 16 : width < threshold));
     apply(node.getBoundingClientRect().width);
     const observer = new ResizeObserver((entries) => {
       apply(entries[0]?.contentRect.width ?? 0);

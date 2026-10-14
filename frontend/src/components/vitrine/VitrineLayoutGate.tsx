@@ -16,7 +16,7 @@ export function VitrineLayoutGate({ children }: { children: React.ReactNode }) {
   if (isAuthRoute) {
     return (
       <div className="flex min-h-dvh flex-col overflow-x-clip bg-navy md:min-h-screen">
-        <div className="relative z-10 -mb-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-[1.75rem] bg-[#F9FBFF] md:-mb-9 md:rounded-b-[2.25rem]">
+        <div className="relative z-10 -mb-7 flex min-h-0 flex-1 flex-col overflow-clip rounded-b-[1.75rem] bg-[#F9FBFF] md:-mb-9 md:rounded-b-[2.25rem]">
           <AuthAtmosphere />
           <VitrineHeader />
           <div className="site-inner relative z-10 min-w-0 flex-1 overflow-x-clip py-8 md:py-10" data-app-outlet="">
@@ -30,7 +30,7 @@ export function VitrineLayoutGate({ children }: { children: React.ReactNode }) {
 
   const vitrine = (
     <div className="flex min-h-dvh flex-col bg-navy md:min-h-screen">
-      <div className="relative z-10 -mb-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-[1.75rem] bg-[#F9FBFF] md:-mb-9 md:rounded-b-[2.25rem]">
+      <div className="relative z-10 -mb-7 flex min-h-0 flex-1 flex-col overflow-clip rounded-b-[1.75rem] bg-[#F9FBFF] md:-mb-9 md:rounded-b-[2.25rem]">
         <VitrineHeader overlay={isHome} />
         <div className={isHome ? "flex-1" : "site-inner flex-1 py-8 md:py-10"} data-app-outlet="">
           {children}
