@@ -33,28 +33,28 @@ const FEATURES: {
 }[] = [
   {
     icon: LayoutTemplate,
-    title: "Éditeur live",
-    text: "Deux colonnes : vous saisissez à gauche, le CV se dessine à droite. Identité, expériences et compétences s'affichent comme le verra le recruteur, sans attendre l'export.",
+    title: "Remplir votre CV",
+    text: "Vous tapez vos informations, le CV s'affiche à côté en même temps.",
   },
   {
     icon: Mic,
-    title: "Dictée vocale",
-    text: `Parlez au micro : ${appConfig.assistantFirstName} écoute votre parcours et rédige le CV : résumé, missions, compétences. Vous relisez, ajustez, l'aperçu suit en direct.`,
+    title: "Parler au lieu d'écrire",
+    text: `Racontez votre parcours au micro. ${appConfig.assistantFirstName} écrit le CV pour vous.`,
   },
   {
     icon: Sparkles,
-    title: "Agent IA et traduction",
-    text: `Dans la bulle, ${appConfig.assistantFirstName} reformule, change le ton ou comble une section. Le bouton Traduire passe le CV dans une autre langue, sans toucher aux noms ni aux contacts.`,
+    title: "Corriger et traduire",
+    text: `${appConfig.assistantFirstName} améliore vos phrases. Un bouton traduit votre CV dans une autre langue.`,
   },
   {
     icon: Target,
-    title: "Candidature ciblée",
-    text: "Collez une offre : l'IA rédige le CV adapté, la lettre et une checklist. Plus de brouillon générique à retravailler à la main.",
+    title: "Postuler à une offre",
+    text: "Collez une offre d'emploi. Vous recevez un CV adapté et une lettre de motivation.",
   },
   {
     icon: ArrowLeftRight,
-    title: "Convertir et importer",
-    text: "PDF vers Word, Word vers PDF, ou import dans l'éditeur. Même reconstruction que dans votre espace, disponible aussi sans compte.",
+    title: "Convertir un fichier",
+    text: "Transformez un PDF en Word, ou l'inverse. Vous pouvez aussi importer votre ancien CV pour le modifier.",
   },
 ];
 
@@ -134,15 +134,14 @@ export function LandingView() {
         <div className="site-inner relative grid min-w-0 items-center gap-5 pb-16 pt-28 md:pb-20 md:pt-32 lg:grid-cols-2 lg:gap-4">
           <div className="relative z-10 min-w-0">
             <p className="text-sm font-medium text-amber-100/90">
-              Convertir · Importer · Traduire · Candidature IA
+              CV · Lettre de motivation · PDF et Word
             </p>
             <h1 className="mt-3 font-display text-[1.85rem] font-bold leading-tight sm:text-4xl md:text-5xl">
-              Le CV qui passe les filtres recruteurs
+              Faites votre CV en quelques minutes
             </h1>
             <p className="mt-4 max-w-xl text-base text-white/75 sm:text-lg">
-              Choisissez un modèle, importez un fichier ou laissez {assistant} rédiger et
-              traduire. Exportez en PDF ou Word. Analyse ATS et candidature ciblée incluses.
-              Gratuit pour commencer, sans carte.
+              Remplissez vos informations ou parlez au micro : {assistant} écrit le CV pour
+              vous. Téléchargez-le en PDF ou en Word.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Button asChild size="lg" className="h-11 w-full rounded-xl px-6 shadow-brand sm:w-auto">
@@ -160,7 +159,7 @@ export function LandingView() {
               </Button>
             </div>
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/80">
-              {["Sans carte bancaire", "PDF ↔ Word sans compte", "Aperçu live"].map((item) => (
+              {["Gratuit", "Sans carte bancaire", "PDF ou Word"].map((item) => (
                 <li key={item} className="inline-flex items-center gap-2">
                   <Check className="h-4 w-4 text-emerald-300" />
                   {item}
@@ -190,14 +189,14 @@ export function LandingView() {
         <div className="site-inner py-10 md:py-12">
           <section>
             <Reveal>
-              <SectionHead kicker="L'espace candidat" title="Écrire, dicter, candidater" />
+              <SectionHead kicker="Fonctionnalités" title="Ce que vous pouvez faire" />
             </Reveal>
             <div className="mt-8 grid items-start gap-8 lg:grid-cols-2 lg:gap-12">
               <Reveal>
                 <div className="relative aspect-[5/4] overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                   <Image
                     src="/images/caroussel 0.png"
-                    alt="Éditeur CV avec aperçu live"
+                    alt="Le CV s'affiche pendant que vous le remplissez"
                     fill
                     sizes="(min-width: 1024px) 40vw, 100vw"
                     className="object-contain object-center"
@@ -240,7 +239,7 @@ export function LandingView() {
             <Reveal>
               <SectionHead
                 kicker="Modèles"
-                title="Prêts pour les recruteurs"
+                title="Choisissez un modèle"
                 action={
                   <Button asChild variant="outline" className="h-10 rounded-xl bg-white">
                     <Link href="/modeles">Tous les modèles</Link>
@@ -273,9 +272,9 @@ export function LandingView() {
               />
               <div className="relative flex flex-col gap-6 px-6 py-8 md:flex-row md:items-center md:justify-between md:px-8 md:py-9">
                 <div className="min-w-0 max-w-lg">
-                  <p className="text-sm font-medium text-amber-100/90">Gratuit · Sans carte · PDF ↔ Word</p>
+                  <p className="text-sm font-medium text-amber-100/90">Gratuit · Sans carte bancaire</p>
                   <h2 className="mt-1.5 font-display text-2xl font-bold tracking-tight md:text-[1.75rem] md:leading-snug">
-                    Créez, importez ou convertissez : prêt pour les recruteurs
+                    Créez votre CV maintenant
                   </h2>
                 </div>
                 <div className="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
