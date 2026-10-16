@@ -31,15 +31,27 @@ def _serialize(row: CurriculumVitae) -> dict:
 
 
 def list_cvs(db: Session, user: User) -> dict:
-    """Frontend unwraps CvData[] | { data: CvData[] }."""
-    rows = (
-        db.query(CurriculumVitae)
-        .filter(CurriculumVitae.user_id == user.id)
-        .order_by(CurriculumVitae.updated_at.desc())
-        .all()
-    )
-    data = [_serialize(row) for row in rows]
-    return {"data": data}
+    """Frontend unwraps CvData[] | { data: CvData[] }.
+
+    Le tri se fait sur l'identifiant seul : inclure `payload` (JSON parfois
+    volumineux) dans le ORDER BY fait échouer MySQL (erreur 1038).
+    """
+    ordered_ids = [
+        cv_id
+        for (cv_id,) in (
+            db.query(CurriculumVitae.id)
+            .filter(CurriculumVitae.user_id == user.id)
+            .order_by(CurriculumVitae.updated_at.desc(), CurriculumVitae.id.desc())
+            .all()
+        )
+    ]
+    if not ordered_ids:
+        return {"data": []}
+    rows = {
+        row.id: row
+        for row in db.query(CurriculumVitae).filter(CurriculumVitae.id.in_(ordered_ids)).all()
+    }
+    return {"data": [_serialize(rows[cv_id]) for cv_id in ordered_ids if cv_id in rows]}
 
 
 def get_cv(db: Session, user: User, cv_id: str) -> dict:

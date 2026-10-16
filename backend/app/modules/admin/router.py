@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.core.database import get_db
 from app.core.deps import require_admin
@@ -272,7 +272,13 @@ def list_cvs(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    query = db.query(CurriculumVitae, User).join(User, User.id == CurriculumVitae.user_id)
+    # `payload` est exclu du SELECT : le tri MySQL sur la ligne entière dépasse
+    # sinon sort_buffer_size (erreur 1038) dès qu'un CV contient une photo.
+    query = (
+        db.query(CurriculumVitae, User)
+        .join(User, User.id == CurriculumVitae.user_id)
+        .options(defer(CurriculumVitae.payload))
+    )
     if q:
         like = f"%{q.strip()}%"
         query = query.filter(
