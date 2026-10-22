@@ -126,8 +126,8 @@ export function isValidMesombMobile(value: string, fallbackIso2?: string | null)
   if (digits.startsWith("00")) digits = digits.slice(2);
   if (!digits) return false;
 
-  const country = mesombCountryByIso2(fallbackIso2) ?? detectMesombCountry(digits, fallbackIso2);
-  const local = formatPhoneForMesomb(digits, country.iso2);
+  const country = detectMesombCountry(digits, fallbackIso2);
+  const local = formatPhoneForMesomb(digits, fallbackIso2);
   if (local.length === country.localLen) return true;
 
   const parsed = parsePhoneNumberFromString(withPlus(value));

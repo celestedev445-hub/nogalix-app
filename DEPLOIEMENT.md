@@ -34,7 +34,7 @@ La base de données est **inchangée** (mêmes tables, mêmes migrations Alembic
 3. Webhook : `https://<APP_DOMAIN>/api/payments/webhook`, et copiez son secret dans `MESOMB_WEBHOOK_SECRET`.
 4. Tant que ces clés sont vides, la page Plans affiche « Paiement en ligne bientôt disponible ». Rien ne plante.
 
-Fonctionnement : l'utilisateur choisit Pro/Premium, 1 ou 12 mois (−20 %), saisit son numéro MTN/Orange et valide sur son téléphone. L'app suit le statut (polling et webhook, toujours revérifié auprès de MeSomb), active le plan jusqu'à l'échéance, envoie un reçu, puis repasse l'utilisateur en Gratuit à l'expiration. Aucun prélèvement automatique.
+Fonctionnement : l'utilisateur choisit Pro/Premium, 1 ou 12 mois (−20 %), saisit son numéro MTN/Orange et valide sur son téléphone. Un webhook signé active le plan ; sans signature valide, le statut est relu chez MeSomb. Le navigateur suit surtout la base (vérification opérateur à 30 s, 90 s, puis chaque minute). À l'échéance, le compte repasse en Gratuit. Aucun prélèvement automatique.
 
 ## 3. Déploiement
 

@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  ExternalLink,
   Loader2,
   Lock,
   RefreshCw,
@@ -56,8 +57,12 @@ import {
   type PaymentConfig,
 } from "@/services/payments";
 
+const POLL_FIRST_MS = 2000;
 const POLL_INTERVAL_MS = 3000;
-const POLL_MAX_MS = 3 * 60 * 1000;
+const POLL_MAX_MS = 10 * 60 * 1000;
+const FIRST_VERIFY_AFTER_MS = 30 * 1000;
+const SECOND_VERIFY_AFTER_MS = 90 * 1000;
+const VERIFY_EVERY_MS = 60 * 1000;
 
 const MESOMB_PREFERRED_COUNTRIES = ["cm", "ci", "sn", "cd", "ga", "bj", "bf", "ke", "ug"];
 
@@ -138,6 +143,7 @@ export function MobileMoneyCheckout({
 
   const pollTimer = useRef<number | null>(null);
   const pollStarted = useRef(0);
+  const lastVerifyAt = useRef<number | null>(null);
   const alive = useRef(true);
   const finished = useRef(false);
   const countryTouched = useRef(false);
@@ -257,12 +263,26 @@ export function MobileMoneyCheckout({
   );
 
   const poll = useCallback(
-    (reference: string) => {
+    (reference: string, delay = POLL_INTERVAL_MS) => {
       stopPolling();
       pollTimer.current = window.setTimeout(async () => {
         if (!alive.current) return;
+        const now = Date.now();
+        const elapsed = now - pollStarted.current;
+        if (elapsed >= POLL_MAX_MS) {
+          setStep("timeout");
+          return;
+        }
+        const last = lastVerifyAt.current;
+        const verify =
+          last == null
+            ? elapsed >= FIRST_VERIFY_AFTER_MS
+            : last - pollStarted.current < SECOND_VERIFY_AFTER_MS
+              ? elapsed >= SECOND_VERIFY_AFTER_MS
+              : now - last >= VERIFY_EVERY_MS;
+        if (verify) lastVerifyAt.current = now;
         try {
-          const response = await getPayment(reference);
+          const response = await getPayment(reference, { verify });
           if (!alive.current || finished.current) return;
           if (response?.data) {
             setPayment(response.data);
@@ -275,12 +295,8 @@ export function MobileMoneyCheckout({
           /* réseau instable : on retente au prochain tour */
         }
         if (!alive.current || finished.current) return;
-        if (Date.now() - pollStarted.current >= POLL_MAX_MS) {
-          setStep("timeout");
-          return;
-        }
         poll(reference);
-      }, POLL_INTERVAL_MS);
+      }, delay);
     },
     [finish, stopPolling],
   );
@@ -310,8 +326,9 @@ export function MobileMoneyCheckout({
       if (next.status === "pending") {
         finished.current = false;
         pollStarted.current = Date.now();
+        lastVerifyAt.current = null;
         setStep("waiting");
-        poll(next.reference);
+        poll(next.reference, POLL_FIRST_MS);
       } else {
         await finish(next, response.user);
       }
@@ -330,7 +347,7 @@ export function MobileMoneyCheckout({
     if (!payment) return;
     setChecking(true);
     try {
-      const response = await getPayment(payment.reference);
+      const response = await getPayment(payment.reference, { verify: true });
       if (response?.data) {
         setPayment(response.data);
         if (response.data.status !== "pending") {
@@ -339,8 +356,9 @@ export function MobileMoneyCheckout({
         }
       }
       pollStarted.current = Date.now();
+      lastVerifyAt.current = Date.now();
       setStep("waiting");
-      poll(payment.reference);
+      poll(payment.reference, POLL_FIRST_MS);
     } catch (err) {
       toast({
         title: "Vérification impossible",
@@ -647,8 +665,9 @@ export function MobileMoneyCheckout({
                   return;
                 }
                 pollStarted.current = Date.now();
+                lastVerifyAt.current = null;
                 setStep("waiting");
-                poll(payment.reference);
+                poll(payment.reference, POLL_FIRST_MS);
               }}
             />
             <Button
@@ -720,6 +739,21 @@ export function MobileMoneyCheckout({
               <p className="text-xs text-navy/50">
                 Pas de notification ? Composez {ussd} pour valider le paiement {operatorLabel}.
               </p>
+            ) : payment.service !== "CARD" && payment.provider !== "keypay" ? (
+              <p className="text-xs text-navy/50">
+                Pas de notification ? Ouvrez l&apos;application {operatorLabel} pour valider la demande.
+              </p>
+            ) : null}
+            {payment.payment_url && payment.service !== "CARD" && payment.provider !== "keypay" ? (
+              <a
+                href={payment.payment_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-principale underline-offset-2 hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ouvrir la page de confirmation
+              </a>
             ) : null}
             <p className="text-xs text-navy/45">
               Vous pouvez fermer ce panneau : le plan sera activé dès la confirmation (suivi dans Profil ›

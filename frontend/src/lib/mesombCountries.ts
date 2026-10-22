@@ -103,7 +103,17 @@ export function mesombCountryByIso2(iso2?: string | null): MesombCountry | null 
 }
 
 export function detectMesombCountry(phone: string, fallbackIso2?: string | null): MesombCountry {
-  return mesombDialCountry(phone) ?? mesombCountryByIso2(fallbackIso2) ?? MESOMB_COUNTRIES[0];
+  let digits = (phone || "").replace(/\D/g, "");
+  if (digits.startsWith("00")) {
+    digits = digits.slice(2);
+  }
+  const sorted = [...MESOMB_COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+  for (const country of sorted) {
+    if (digits.startsWith(country.dial)) {
+      return country;
+    }
+  }
+  return mesombCountryByIso2(fallbackIso2) ?? MESOMB_COUNTRIES[0];
 }
 
 /** Pays MeSomb seulement si le numéro commence par un indicatif connu (pas un simple fallback). */
@@ -128,9 +138,9 @@ export function formatPhoneForMesomb(phone: string, fallbackIso2?: string | null
   if (digits.startsWith("00")) {
     digits = digits.slice(2);
   }
-  const country = mesombCountryByIso2(fallbackIso2) ?? detectMesombCountry(digits, fallbackIso2);
+  const country = detectMesombCountry(digits, fallbackIso2);
   let local = digits;
-  if (digits.startsWith(country.dial)) {
+  if (digits.startsWith(country.dial) && digits.length > country.dial.length) {
     local = digits.slice(country.dial.length);
   }
 
@@ -162,7 +172,7 @@ export function mesombServiceLabel(method: string): string {
 }
 
 const MESOMB_USSD: Record<string, Partial<Record<MesombService, string>>> = {
-  CM: { ORANGE: "#150*50#", MTN: "*126#" },
+  CM: { ORANGE: "#150#", MTN: "*126#" },
   CI: { ORANGE: "#144#", MTN: "*133#", MOOV: "*155#" },
   SN: { ORANGE: "#144#" },
   BJ: { MTN: "*880#", MOOV: "*855#" },

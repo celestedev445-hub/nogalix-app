@@ -47,7 +47,7 @@ export const faqItems = [
   },
   {
     q: "Comment payer Pro ou Premium ?",
-    a: "Par Mobile Money : MTN Mobile Money ou Orange Money, via notre prestataire MeSomb. Choisissez votre plan, saisissez votre numéro, puis validez la demande sur votre téléphone (MTN : notification ou *126# ; Orange : #150*50#).",
+    a: "Par Mobile Money : MTN Mobile Money ou Orange Money, via notre prestataire MeSomb. Choisissez votre plan, saisissez votre numéro, puis validez la demande sur votre téléphone (MTN : notification ou *126# ; Orange : #150#).",
   },
   {
     q: "L'abonnement se renouvelle-t-il automatiquement ?",

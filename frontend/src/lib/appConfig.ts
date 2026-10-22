@@ -47,7 +47,7 @@ export const appConfig = {
   turnstileSiteKey: read("turnstileSiteKey"),
   assistantName: read("assistantName", "Noga"),
   assistantFirstName: read("assistantFirstName", "Noga"),
-  contactEmail: read("contactEmail", "contact@nogalix.com"),
+  contactEmail: read("contactEmail", "contact@nogalix.avexsolution.com"),
   supportEmail: read("supportEmail", ""),
   contactPhone: read("contactPhone", ""),
   cbcName: read("cbcName", "CBC"),

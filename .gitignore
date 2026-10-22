@@ -10,7 +10,7 @@ backend/.env.*
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
-frontend/node_modules/
+node_modules/
 frontend/dist/
 frontend/dist-ssr/
 frontend/.prerender-config.json
@@ -42,3 +42,8 @@ _sauvegarde_avant_migration/
 
 **/.git.bak/
 
+
+# Vidéo promo (HyperFrames) et fichiers de production : non versionnés
+videos/
+pub-heygen/
+presentation.mp3

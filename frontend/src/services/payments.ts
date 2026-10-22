@@ -31,6 +31,8 @@ export type Payment = {
   phone: string;
   status: PaymentStatus;
   failure_reason?: string | null;
+  /** Lien de confirmation (Wave) renvoyé par MeSomb. */
+  payment_url?: string | null;
   paid_at?: string | null;
   period_start?: string | null;
   period_end?: string | null;
@@ -96,9 +98,10 @@ export async function startCheckout(body: {
   return makeRequest("payments/checkout", "POST", body, true, false) as Promise<PaymentResponse>;
 }
 
-export async function getPayment(reference: string) {
+export async function getPayment(reference: string, options?: { verify?: boolean }) {
+  const query = options?.verify ? "?verify=1" : "";
   return makeRequest(
-    `payments/${encodeURIComponent(reference)}`,
+    `payments/${encodeURIComponent(reference)}${query}`,
     "GET",
     null,
     true,
