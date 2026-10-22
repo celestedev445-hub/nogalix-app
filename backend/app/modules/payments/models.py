@@ -55,6 +55,15 @@ class Payment(Base):
     def is_final(self) -> bool:
         return self.status in FINAL_STATUSES
 
+    @property
+    def payment_url(self) -> Optional[str]:
+        raw = self.raw if isinstance(self.raw, dict) else {}
+        meta = raw.get("_meta") if isinstance(raw.get("_meta"), dict) else {}
+        for candidate in (meta.get("payment_url"), raw.get("payment_url"), raw.get("redirect")):
+            if isinstance(candidate, str) and candidate.startswith("http"):
+                return candidate
+        return None
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -69,6 +78,7 @@ class Payment(Base):
             "phone": self.phone,
             "status": self.status,
             "failure_reason": self.failure_reason,
+            "payment_url": self.payment_url,
             "paid_at": iso_utc(self.paid_at),
             "period_start": iso_utc(self.period_start),
             "period_end": iso_utc(self.period_end),

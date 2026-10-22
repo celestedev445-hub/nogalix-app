@@ -55,7 +55,7 @@ def render_fingerprint() -> dict[str, str]:
         "shortName": value("appShortName", "Nogalix"),
         "assistantName": value("assistantName", "Noga"),
         "assistantFirstName": value("assistantFirstName", "Noga"),
-        "contactEmail": value("contactEmail", "contact@nogalix.com"),
+        "contactEmail": value("contactEmail", "contact@nogalix.avexsolution.com"),
         "supportEmail": value("supportEmail"),
         "contactPhone": value("contactPhone"),
         "cbcName": value("cbcName", "CBC"),

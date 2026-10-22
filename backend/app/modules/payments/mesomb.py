@@ -1,11 +1,17 @@
 """Client HTTP MeSomb (Mobile Money), aligné sur contactBusinessCenter.
 
 Doc : https://docs.mesomb.com/fr
-  - POST /{locale}/api/v1.1/payment/collect/        : collecter un paiement
+  - POST /{locale}/api/v1.1/payment/collect/         : collecter un paiement
   - GET  /api/v1.1/payment/transactions/?ids=…       : statut d'une transaction
   - GET  /api/v1.1/payment/transactions/check/?ids=… : revalidation opérateur
 
-Auth : HMAC-SHA1 (MESOMB_AUTH=hmac) comme le SDK officiel / CBC.
+Exactement comme CBC (qui fonctionne en production) : les POST partent sur
+/{locale}/api/…, signés sur cette URL, et une redirection 307/308 de MeSomb est suivie
+en conservant méthode, corps et en-têtes (comportement de Guzzle côté CBC).
+Les GET de lecture n'ont pas de préfixe de langue (SDK officiel).
+
+Auth : HMAC-SHA1 (MESOMB_AUTH=hmac, réglage de CBC) ; auto = Bearer si la clé
+commence par sk_, puis repli HMAC sur 401/403.
 """
 
 from __future__ import annotations
@@ -231,13 +237,10 @@ class MeSombClient:
         self._assert_configured()
         method = method.upper()
         mode = mode or self._collect_mode()
-        if method == "GET":
-            url = f"{self.base_url}/api/{self.version}/{path.lstrip('/')}"
-            nonce = ""
-        else:
-            prefix = f"/{self.locale}" if self.locale else ""
-            url = f"{self.base_url}{prefix}/api/{self.version}/{path.lstrip('/')}"
-            nonce = _nonce()
+        # Comme CBC : préfixe de langue sur les POST uniquement.
+        prefix = f"/{self.locale}" if self.locale and method != "GET" else ""
+        url = f"{self.base_url}{prefix}/api/{self.version}/{path.lstrip('/')}"
+        nonce = "" if method == "GET" else _nonce()
         ts = int(time.time())
         headers = self._headers(method, url, ts, nonce, body, mode=mode, trx_id=trx_id)
         data = self._send(method, url, headers, body)
@@ -264,7 +267,8 @@ class MeSombClient:
             content = _encode_body(body).encode()
         timeout = httpx.Timeout(self.timeout, connect=self.connect_timeout)
         try:
-            with sync_client(timeout=timeout) as client:
+            # Comme Guzzle (CBC) : une 307/308 est suivie avec la même méthode et le même corps.
+            with sync_client(timeout=timeout, follow_redirects=True) as client:
                 response = client.request(method, url, headers=headers, content=content)
         except httpx.HTTPError as exc:
             logger.error("MeSomb injoignable (%s %s) : %s", method, url, exc)
@@ -274,26 +278,62 @@ class MeSombClient:
                 connection_error=True,
             ) from exc
 
+        if response.history:
+            logger.info(
+                "MeSomb %s %s redirigé vers %s (HTTP %s)",
+                method,
+                url,
+                response.url,
+                response.status_code,
+            )
         try:
             payload = response.json()
         except ValueError:
             payload = {}
+        if 300 <= response.status_code < 400:
+            logger.error(
+                "MeSomb redirection %s vers %s",
+                response.status_code,
+                response.headers.get("location"),
+            )
+            raise MeSombError(
+                "Le service de paiement a renvoyé une redirection inattendue.",
+                status_code=response.status_code,
+            )
         if response.status_code >= 400:
             explained = mesomb_errors.explain(payload if isinstance(payload, dict) else {})
-            message = explained["raw"] or explained["message"] or "Service de paiement indisponible. Réessayez plus tard."
-            if isinstance(message, str) and "application" in message.lower():
-                message += (
-                    " Vérifiez MESOMB_APPLICATION_KEY (clé d'application du dashboard MeSomb, "
-                    "distincte de l'API Key / Access Key)."
+            message = explained["raw"] or explained["message"]
+            if explained["code"] is None and isinstance(message, str) and "application" in message.lower():
+                # Problème de configuration : journalisé, jamais montré au payeur (comme CBC).
+                logger.error(
+                    "MeSomb : vérifiez MESOMB_APPLICATION_KEY (clé d'application du dashboard, "
+                    "distincte de l'Access Key). HTTP %s : %s",
+                    response.status_code,
+                    message,
                 )
-            client_message = explained["message"] if explained["code"] else (
-                f"MeSomb : {message}" if message else "Service de paiement indisponible. Réessayez plus tard."
+                message = None
+            error_code = explained["code"] or (payload.get("code") if isinstance(payload, dict) else None)
+            if explained["code"]:
+                client_message = explained["message"]
+            elif response.status_code >= 500:
+                client_message = (
+                    "Cet opérateur Mobile Money est momentanément indisponible. "
+                    "Réessayez dans quelques minutes ou choisissez un autre opérateur."
+                )
+            elif response.status_code == 400 and explained["raw"] and message:
+                client_message = f"Paiement refusé : {message}"
+            else:
+                client_message = "Le service de paiement est momentanément indisponible. Réessayez plus tard."
+            logger.warning(
+                "MeSomb HTTP %s code=%s : %s",
+                response.status_code,
+                error_code,
+                client_message,
             )
-            logger.warning("MeSomb HTTP %s : %s", response.status_code, client_message)
             error = MeSombError(
                 client_message,
                 status_code=response.status_code,
-                code=explained["code"] or (payload.get("code") if isinstance(payload, dict) else None),
+                code=error_code,
             )
             if self._uses_bearer() and self.auth_mode == "auto" and response.status_code in {401, 403}:
                 return {"_http_status": response.status_code, "_error": error}
@@ -333,8 +373,7 @@ class MeSombClient:
             "fees": True,
             "conversion": conversion,
             # Comme CBC : la référence NGX-… part en `reference` (renvoyée dans data.object.reference
-            # des webhooks) et en en-tête X-MeSomb-TrxID ; la description va dans `message`.
-            "trxID": reference,
+            # des webhooks) et en en-tête X-MeSomb-TrxID. Pas de champ `trxID` dans le corps.
             "reference": reference,
             "message": description,
             "products": [{"name": description, "quantity": 1, "amount": int(amount)}],
@@ -449,26 +488,49 @@ class MeSombClient:
             return raw
         return {}
 
+    @staticmethod
+    def _http_url(source: Any) -> Optional[str]:
+        if not isinstance(source, dict):
+            return None
+        for key in ("redirect", "url", "payment_url", "paymentUrl", "link"):
+            candidate = source.get(key)
+            if isinstance(candidate, str) and candidate.startswith("http"):
+                return candidate
+        return None
+
     def normalize(self, raw: Any) -> dict[str, Any]:
         tx = self._first_transaction(raw)
-        explained = mesomb_errors.explain(tx if tx else (raw if isinstance(raw, dict) else {}))
-        status = map_status(str(tx.get("status") or (raw.get("status") if isinstance(raw, dict) else "") or ""))
+        envelope = raw if isinstance(raw, dict) else {}
+        explained = mesomb_errors.explain(tx if tx else envelope)
+        status = map_status(str(tx.get("status") or envelope.get("status") or ""))
         failed = status in {"failed", "expired", "cancelled"}
         message = explained["message"] if (failed or explained["code"]) else explained["raw"]
-        if isinstance(raw, dict) and not message:
-            raw_msg = raw.get("message") or raw.get("detail")
+        if not message:
+            raw_msg = envelope.get("message") or envelope.get("detail")
             message = raw_msg if isinstance(raw_msg, str) else None
+        amount = tx.get("amount")
+        if amount is None:
+            amount = envelope.get("amount")
+        currency = tx.get("currency") or envelope.get("currency")
+        trxamount = tx.get("trxamount")
+        if trxamount is None:
+            trxamount = envelope.get("trxamount")
+        fees = tx.get("fees", tx.get("fee"))
+        if fees is None:
+            fees = envelope.get("fees", envelope.get("fee"))
+        pk = tx.get("pk") or tx.get("id") or envelope.get("pk") or envelope.get("id")
         return {
             "status": status,
-            "provider_reference": str(tx.get("pk") or tx.get("id") or "") or None,
+            "provider_reference": str(pk) if pk else None,
             "message": message if isinstance(message, str) else None,
             "code": explained["code"],
             # Montants confirmés par MeSomb : contrôlés avant toute activation.
-            "amount": tx.get("amount"),
-            "trxamount": tx.get("trxamount"),
-            "fees": tx.get("fees", tx.get("fee")),
-            "currency": tx.get("currency"),
-            "raw": tx or (raw if isinstance(raw, dict) else {}),
+            "amount": amount,
+            "trxamount": trxamount,
+            "fees": fees,
+            "currency": currency,
+            "payment_url": self._http_url(tx) or self._http_url(envelope),
+            "raw": tx or envelope,
         }
 
     def verify_webhook(self, raw_body: bytes, signature: Optional[str]) -> bool:

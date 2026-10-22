@@ -59,7 +59,7 @@ def is_generic_message(message: str) -> bool:
     hay = (message or "").strip().lower()
     if not hay:
         return True
-    if hay.startswith("by ") or (hay.startswith("paiement") and "échou" in hay):
+    if hay.startswith("by ") or re.match(r"^paiements?\s+échou", hay):
         return True
     if hay.startswith("payment failed"):
         return True
@@ -147,13 +147,21 @@ def infer_code_from_message(raw: str) -> Optional[str]:
 
 
 def _scan_code(payload: Any, depth: int = 0) -> Optional[str]:
-    if depth > 4 or not isinstance(payload, dict):
+    if depth > 4:
+        return None
+    if isinstance(payload, list):
+        for item in payload:
+            found = _scan_code(item, depth + 1)
+            if found:
+                return found
+        return None
+    if not isinstance(payload, dict):
         return None
     for value in payload.values():
         found = None
         if isinstance(value, str):
             found = _normalize_code(value) or _code_in_text(value)
-        elif isinstance(value, dict):
+        elif isinstance(value, (dict, list)):
             found = _scan_code(value, depth + 1)
         if found:
             return found

@@ -96,13 +96,17 @@ def payment_config() -> dict[str, Any]:
         "services": [
             {"id": key, "label": label}
             for key, label in (
-                ("MTN", "MTN Mobile Money"),
+                ("MTN", "MTN MoMo"),
                 ("ORANGE", "Orange Money"),
                 ("WAVE", "Wave"),
                 ("MOOV", "Moov Money"),
                 ("AIRTEL", "Airtel Money"),
                 ("MPESA", "M-Pesa"),
                 ("VODACOM", "M-Pesa Vodacom"),
+                ("ZAMTEL", "Zamtel"),
+                ("TNM", "TNM Mpamba"),
+                ("HALOTEL", "Halotel"),
+                ("YAS", "Yas"),
             )
         ],
     }
@@ -431,14 +435,19 @@ def _apply_result(db: Session, payment: Payment, result: dict[str, Any]) -> None
     if new_status == PAYMENT_COMPLETED:
         activate_payment(db, payment)
     if result.get("provider_reference"):
-        payment.provider_reference = result["provider_reference"]
-    if result.get("raw"):
-        raw = dict(result["raw"])
+        pk = str(result["provider_reference"])
+        if pk and not pk.startswith("NGX-"):
+            payment.provider_reference = payment.provider_reference or pk
+    raw_payload = result.get("raw") if isinstance(result.get("raw"), dict) else None
+    if raw_payload or result.get("payment_url") or result.get("client_secret"):
+        raw = dict(raw_payload or (payment.raw if isinstance(payment.raw, dict) else {}))
         if result.get("client_secret"):
             raw.setdefault("clientSecret", result["client_secret"])
         if result.get("stripe_publishable_key"):
             raw.setdefault("stripePublishableKey", result["stripe_publishable_key"])
         meta = _meta(payment)
+        if result.get("payment_url"):
+            meta["payment_url"] = result["payment_url"]
         if meta:
             raw[META_KEY] = meta
         payment.raw = raw
@@ -626,34 +635,107 @@ def cancel_payment(db: Session, payment: Payment) -> Payment:
     return payment
 
 
-def handle_webhook(db: Session, payload: dict[str, Any]) -> Optional[Payment]:
-    obj: dict[str, Any] = payload
+def _webhook_object(payload: dict[str, Any]) -> dict[str, Any]:
     data = payload.get("data")
     if isinstance(data, dict) and isinstance(data.get("object"), dict):
-        obj = data["object"]
-    elif isinstance(payload.get("transaction"), dict):
-        obj = payload["transaction"]
+        return data["object"]
+    if isinstance(payload.get("transaction"), dict):
+        return payload["transaction"]
+    return payload
 
-    candidates = [
-        value
-        for value in (obj.get("trxID"), payload.get("trxID"), obj.get("external_id"), obj.get("reference"))
-        if isinstance(value, str) and value.startswith("NGX-")
-    ]
+
+def _webhook_status(payload: dict[str, Any], obj: dict[str, Any]) -> str:
+    """Statut d'après l'objet, puis l'évènement (payment.transaction.success / failed)."""
+    from app.modules.payments.mesomb import map_status
+
+    from_object = map_status(str(obj.get("status") or payload.get("status") or ""))
+    if from_object != PAYMENT_PENDING:
+        return from_object
+    event = str(payload.get("event_type") or payload.get("event") or payload.get("type") or "").lower()
+    if not event:
+        return PAYMENT_PENDING
+    if "fail" in event:
+        return PAYMENT_FAILED
+    if "success" in event or "succeed" in event:
+        return PAYMENT_COMPLETED
+    if "cancel" in event or "refund" in event:
+        return PAYMENT_CANCELLED
+    if "expir" in event:
+        return PAYMENT_EXPIRED
+    return PAYMENT_PENDING
+
+
+def _with_failure_details(payment: Payment, result: dict[str, Any]) -> dict[str, Any]:
+    """Le webhook d'échec ne porte pas toujours le code : on le relit chez MeSomb."""
+    if result.get("code"):
+        return result
+    reference = payment.provider_reference or payment.reference
+    if not reference:
+        return result
+    try:
+        details = mesomb.transaction(reference, payment.provider_reference)
+    except MeSombError as exc:
+        logger.info("MeSomb : motif d'échec non récupérable (%s) : %s", payment.reference, exc.message)
+        return result
+    if not details or not details.get("code"):
+        return result
+    merged = dict(result)
+    merged["code"] = details.get("code")
+    if details.get("message"):
+        merged["message"] = details["message"]
+    return merged
+
+
+def handle_webhook(db: Session, payload: dict[str, Any], trusted: bool = False) -> Optional[Payment]:
+    obj = _webhook_object(payload)
+    candidates: list[str] = []
+    for value in (
+        obj.get("trxID"),
+        payload.get("trxID"),
+        payload.get("externalReference"),
+        obj.get("external_id"),
+        obj.get("reference"),
+        payload.get("reference"),
+    ):
+        if isinstance(value, str) and value.startswith("NGX-") and value not in candidates:
+            candidates.append(value)
     payment = None
     for ref in candidates:
         payment = db.query(Payment).filter(Payment.reference == ref).first()
         if payment:
             break
-    pk = obj.get("pk") or obj.get("id")
-    if not payment and pk:
-        payment = db.query(Payment).filter(Payment.provider_reference == str(pk)).first()
+    pk = obj.get("pk") or obj.get("id") or payload.get("pk")
+    pk_text = str(pk) if pk else ""
+    if pk_text.startswith("NGX-"):
+        pk_text = ""
+    if not payment and pk_text:
+        payment = db.query(Payment).filter(Payment.provider_reference == pk_text).first()
     if not payment:
         logger.warning("Webhook MeSomb : paiement introuvable (%s)", candidates or pk)
         return None
-    if pk and not payment.provider_reference:
-        payment.provider_reference = str(pk)
-    # On ne fait jamais confiance au contenu du webhook : on relit le statut chez MeSomb.
-    return refresh_payment(db, payment, recheck_closed=True)
+    if payment.status == PAYMENT_COMPLETED:
+        return payment
+    if pk_text and not payment.provider_reference:
+        payment.provider_reference = pk_text
+    if not trusted:
+        # Sans signature vérifiable, le contenu peut être forgé : seule l'API MeSomb fait foi.
+        return refresh_payment(db, payment, recheck_closed=True)
+
+    result = mesomb.normalize(obj)
+    result["status"] = _webhook_status(payload, obj)
+    if result["status"] == PAYMENT_PENDING:
+        db.commit()
+        return payment
+    # Une annulation locale n'arrête pas l'opérateur : seul un succès la remplace.
+    if payment.status != PAYMENT_PENDING and result["status"] != PAYMENT_COMPLETED:
+        db.commit()
+        return payment
+    if result["status"] == PAYMENT_FAILED:
+        result = _with_failure_details(payment, result)
+    _apply_result(db, payment, result)
+    db.commit()
+    db.refresh(payment)
+    return payment
 
 
 def handle_keypay_webhook(db: Session, payload: dict[str, Any]) -> Optional[Payment]:

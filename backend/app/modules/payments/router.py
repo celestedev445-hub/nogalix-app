@@ -109,11 +109,15 @@ def checkout(
 def show(
     request: Request,
     reference: str,
+    verify: bool = Query(default=False),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # Relit aussi un paiement annulé / expiré : le client a pu valider sur son téléphone entre-temps.
-    payment = service.refresh_payment(db, _own_payment(db, user, reference), recheck_closed=True)
+    payment = _own_payment(db, user, reference)
+    # Écoute courante : lecture en base (tenue à jour par le webhook). `verify` relit MeSomb,
+    # comme payments/status puis payments/verify de CBC.
+    if verify or payment.provider != "mesomb":
+        payment = service.refresh_payment(db, payment, recheck_closed=True)
     return {"data": payment.to_dict(), "user": _me_payload(db, user)}
 
 
@@ -132,9 +136,14 @@ async def webhook(
     raw = await request.body()
     if len(raw) > 64 * 1024:
         raise HTTPException(status_code=413, detail={"message": "Charge utile trop volumineuse."})
-    if settings.mesomb_webhook_secret and not mesomb.verify_webhook(raw, x_mesomb_webhook_signature):
-        logger.warning("Webhook MeSomb : signature invalide")
-        raise HTTPException(status_code=401, detail={"message": "Signature de webhook invalide."})
+    trusted = False
+    if settings.mesomb_webhook_secret:
+        if not mesomb.verify_webhook(raw, x_mesomb_webhook_signature):
+            logger.warning("Webhook MeSomb : signature invalide")
+            raise HTTPException(status_code=401, detail={"message": "Signature de webhook invalide."})
+        trusted = True
+    else:
+        logger.warning("Webhook MeSomb : aucun secret configuré, statut relu chez MeSomb")
     try:
         payload = await request.json()
     except ValueError:
@@ -142,8 +151,8 @@ async def webhook(
     if not isinstance(payload, dict):
         raise HTTPException(status_code=422, detail={"message": "JSON invalide."})
     try:
-        # Le statut est toujours relu chez MeSomb (appel réseau) : hors de la boucle du serveur.
-        await run_in_threadpool(service.handle_webhook, db, payload)
+        # Signature valide : le payload signé fait foi. Sinon, relecture MeSomb hors de la boucle.
+        await run_in_threadpool(service.handle_webhook, db, payload, trusted)
     except Exception:
         # Erreur passagère (base de données…) : 500 pour que MeSomb renvoie l'évènement.
         logger.exception("Webhook MeSomb : erreur de traitement")

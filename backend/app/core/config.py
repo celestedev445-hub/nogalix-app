@@ -42,9 +42,9 @@ class Settings(BaseSettings):
     mail_port: int = 587
     mail_username: str = ""
     mail_password: str = ""
-    mail_from_address: str = "contact@nogalix.com"
+    mail_from_address: str = "contact@nogalix.avexsolution.com"
     mail_from_name: str = "Nogalix"
-    contact_to_email: str = "contact@nogalix.com"
+    contact_to_email: str = "contact@nogalix.avexsolution.com"
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash-lite"
@@ -74,7 +74,8 @@ class Settings(BaseSettings):
     mesomb_api_key: str = ""
     mesomb_api_secret: str = ""
     mesomb_application_key: str = ""
-    mesomb_auth: str = "hmac"
+    # auto : Bearer si la clé commence par sk_, sinon HMAC (comme CBC).
+    mesomb_auth: str = "auto"
     mesomb_locale: str = "fr"
     mesomb_language: str = "fr"
     mesomb_api_version: str = "v1.1"
