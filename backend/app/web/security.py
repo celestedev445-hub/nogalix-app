@@ -1,4 +1,4 @@
-"""En-têtes de sécurité appliqués à toutes les réponses (CSP, anti-iframe, permissions)."""
+﻿"""En-têtes de sécurité appliqués à toutes les réponses (CSP, anti-iframe, permissions)."""
 
 from __future__ import annotations
 
@@ -41,17 +41,17 @@ def security_headers() -> tuple[tuple[str, str], ...]:
     csp = "; ".join(
         [
             "default-src 'self'",
-            f"script-src 'self' 'unsafe-inline'{eval_src}{oo_src} https://js.stripe.com https://accounts.google.com https://apis.google.com https://challenges.cloudflare.com",
+            f"script-src 'self' 'unsafe-inline'{eval_src}{oo_src} https://js.stripe.com https://accounts.google.com https://apis.google.com https://challenges.cloudflare.com https://www.paypal.com https://www.sandbox.paypal.com",
             f"style-src 'self' 'unsafe-inline'{oo_src} https://fonts.googleapis.com",
             "img-src 'self' data: blob: https:",
             f"font-src 'self' data:{oo_src} https://fonts.gstatic.com",
             f"connect-src 'self' https:{oo_src}{local_connect} ws: wss:",
-            f"frame-src 'self' blob:{oo_src} https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://challenges.cloudflare.com",
+            f"frame-src 'self' blob:{oo_src} https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://challenges.cloudflare.com https://www.paypal.com https://www.sandbox.paypal.com",
             "worker-src 'self' blob:",
             "media-src 'self' blob:",
             "object-src 'none'",
             "base-uri 'self'",
-            "form-action 'self'",
+            "form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com",
             "frame-ancestors 'none'",
         ]
     )
