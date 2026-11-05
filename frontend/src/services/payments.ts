@@ -7,8 +7,13 @@ export type PaymentStatus = "pending" | "completed" | "failed" | "cancelled" | "
 export type PaymentConfig = {
   enabled: boolean;
   card_enabled?: boolean;
+  paypal_enabled?: boolean;
   provider: string;
   card_provider?: string;
+  paypal_provider?: string;
+  paypal_client_id?: string;
+  paypal_mode?: string;
+  paypal_currency?: string;
   currency: string;
   country: string;
   /** Pays (iso2) activés sur l'application MeSomb. */
@@ -39,6 +44,11 @@ export type Payment = {
   created_at: string;
   client_secret?: string | null;
   stripe_publishable_key?: string | null;
+  paypal_client_id?: string | null;
+  paypal_order_id?: string | null;
+  paypal_amount?: string | null;
+  paypal_currency?: string | null;
+  paypal_mode?: string | null;
 };
 
 export type PaymentResponse = {
@@ -50,8 +60,10 @@ export type PaymentResponse = {
 export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   enabled: false,
   card_enabled: false,
+  paypal_enabled: false,
   provider: "mesomb",
   card_provider: "keypay",
+  paypal_provider: "paypal",
   currency: "XAF",
   country: "CM",
   yearly_discount_percent: 20,
@@ -93,7 +105,7 @@ export async function startCheckout(body: {
   phone?: string;
   service?: MesombService;
   months: number;
-  method?: "CARD" | "MOBILE";
+  method?: "CARD" | "MOBILE" | "PAYPAL";
 }) {
   return makeRequest("payments/checkout", "POST", body, true, false) as Promise<PaymentResponse>;
 }
@@ -103,6 +115,17 @@ export async function getPayment(reference: string, options?: { verify?: boolean
   return makeRequest(
     `payments/${encodeURIComponent(reference)}${query}`,
     "GET",
+    null,
+    true,
+    false,
+  ) as Promise<PaymentResponse>;
+}
+
+
+export async function capturePaypal(reference: string) {
+  return makeRequest(
+    `payments/${encodeURIComponent(reference)}/paypal/capture`,
+    "POST",
     null,
     true,
     false,

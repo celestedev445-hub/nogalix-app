@@ -42,6 +42,7 @@ import {
   type MesombService,
 } from "@/lib/mesombCountries";
 import { StripeCardPayment } from "@/components/payment/StripeCardPayment";
+import { PayPalCheckout } from "@/components/payment/PayPalCheckout";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { MesombServicePicker } from "@/components/payment/MesombServicePicker";
 import { translateMesombFailure } from "@/lib/mesombErrors";
@@ -83,8 +84,8 @@ export type CheckoutPlan = {
   price: number;
 };
 
-type Step = "loading" | "form" | "card" | "waiting" | "timeout" | "success" | "failed" | "disabled";
-type PayMethod = "mobile" | "card";
+type Step = "loading" | "form" | "card" | "paypal" | "waiting" | "timeout" | "success" | "failed" | "disabled";
+type PayMethod = "mobile" | "card" | "paypal";
 
 function formatLongDate(value?: string | null) {
   if (!value) return null;
@@ -104,6 +105,9 @@ function failureMessage(payment: Payment | null) {
   if (!payment) return "Le paiement n'a pas abouti.";
   if (payment.status === "cancelled") return "Le paiement a été annulé.";
   if (payment.status === "expired") return "La demande de paiement a expiré sans validation.";
+  if (payment.service === "PAYPAL" || payment.provider === "paypal") {
+    return payment.failure_reason || "Le paiement PayPal a échoué. Réessayez.";
+  }
   if (payment.service === "CARD" || payment.provider === "keypay") {
     return payment.failure_reason || "Le paiement a été refusé par la banque. Vérifiez votre carte et réessayez.";
   }
@@ -196,8 +200,9 @@ export function MobileMoneyCheckout({
       setConfig(next);
       const mobileOn = Boolean(next.enabled);
       const cardOn = Boolean(next.card_enabled);
-      setPayMethod(cardOn && !mobileOn ? "card" : "mobile");
-      setStep(mobileOn || cardOn ? "form" : "disabled");
+      const paypalOn = Boolean(next.paypal_enabled);
+      setPayMethod(cardOn && !mobileOn && !paypalOn ? "card" : paypalOn && !mobileOn && !cardOn ? "paypal" : "mobile");
+      setStep(mobileOn || cardOn || paypalOn ? "form" : "disabled");
     });
     return () => {
       cancelled = true;
@@ -231,7 +236,9 @@ export function MobileMoneyCheckout({
   const availableServices = phoneCountry.services;
   const mobileEnabled = Boolean(config.enabled);
   const cardEnabled = Boolean(config.card_enabled);
+  const paypalEnabled = Boolean(config.paypal_enabled);
   const usingCard = payMethod === "card" && cardEnabled;
+  const usingPaypal = payMethod === "paypal" && paypalEnabled;
 
   useEffect(() => {
     if (!availableServices.includes(service)) {
@@ -304,7 +311,7 @@ export function MobileMoneyCheckout({
   async function onPay(event: React.FormEvent) {
     event.preventDefault();
     if (!plan || submitting) return;
-    if (!usingCard && !phoneValid) {
+    if (!usingCard && !usingPaypal && !phoneValid) {
       setError("Saisissez un numéro Mobile Money valide pour le pays sélectionné.");
       return;
     }
@@ -313,7 +320,9 @@ export function MobileMoneyCheckout({
     try {
       const response = usingCard
         ? await startCheckout({ plan: plan.slug, months, method: "CARD" })
-        : await startCheckout({ plan: plan.slug, phone, service, months });
+        : usingPaypal
+          ? await startCheckout({ plan: plan.slug, months, method: "PAYPAL" })
+          : await startCheckout({ plan: plan.slug, phone, service, months });
       const next = response?.data;
       if (!next) throw new Error("Réponse inattendue du serveur.");
       setPayment(next);
@@ -321,6 +330,15 @@ export function MobileMoneyCheckout({
       if (usingCard && next.client_secret && next.stripe_publishable_key && next.status === "pending") {
         finished.current = false;
         setStep("card");
+        return;
+      }
+      if (
+        usingPaypal &&
+        (next.paypal_order_id || next.provider === "paypal") &&
+        next.status === "pending"
+      ) {
+        finished.current = false;
+        setStep("paypal");
         return;
       }
       if (next.status === "pending") {
@@ -521,47 +539,83 @@ export function MobileMoneyCheckout({
               })}
             </div>
 
-            {mobileEnabled && cardEnabled ? (
+            {( [mobileEnabled, cardEnabled, paypalEnabled].filter(Boolean).length >= 2 ) ? (
               <div>
                 <Label>Moyen de paiement</Label>
-                <div className="mt-1 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Moyen de paiement">
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={!usingCard}
-                    onClick={() => {
-                      setPayMethod("mobile");
-                      setError(null);
-                    }}
-                    className={cn(
-                      "flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
-                      !usingCard ? "border-principale bg-indigo-clair text-principale" : "border-gris bg-white text-navy/70 hover:bg-indigo-clair/50",
-                    )}
-                  >
-                    <Smartphone className="h-4 w-4" />
-                    Mobile Money
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={usingCard}
-                    onClick={() => {
-                      setPayMethod("card");
-                      setError(null);
-                    }}
-                    className={cn(
-                      "flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
-                      usingCard ? "border-principale bg-indigo-clair text-principale" : "border-gris bg-white text-navy/70 hover:bg-indigo-clair/50",
-                    )}
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    Carte
-                  </button>
+                <div
+                  className={cn(
+                    "mt-1 grid gap-2",
+                    [mobileEnabled, cardEnabled, paypalEnabled].filter(Boolean).length >= 3
+                      ? "grid-cols-3"
+                      : "grid-cols-2",
+                  )}
+                  role="radiogroup"
+                  aria-label="Moyen de paiement"
+                >
+                  {mobileEnabled ? (
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={payMethod === "mobile"}
+                      onClick={() => {
+                        setPayMethod("mobile");
+                        setError(null);
+                      }}
+                      className={cn(
+                        "flex h-11 items-center justify-center gap-2 rounded-xl border px-2 text-sm font-semibold transition-colors",
+                        payMethod === "mobile"
+                          ? "border-principale bg-indigo-clair text-principale"
+                          : "border-gris bg-white text-navy/70 hover:bg-indigo-clair/50",
+                      )}
+                    >
+                      <Smartphone className="h-4 w-4" />
+                      Mobile
+                    </button>
+                  ) : null}
+                  {cardEnabled ? (
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={usingCard}
+                      onClick={() => {
+                        setPayMethod("card");
+                        setError(null);
+                      }}
+                      className={cn(
+                        "flex h-11 items-center justify-center gap-2 rounded-xl border px-2 text-sm font-semibold transition-colors",
+                        usingCard
+                          ? "border-principale bg-indigo-clair text-principale"
+                          : "border-gris bg-white text-navy/70 hover:bg-indigo-clair/50",
+                      )}
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      Carte
+                    </button>
+                  ) : null}
+                  {paypalEnabled ? (
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={usingPaypal}
+                      onClick={() => {
+                        setPayMethod("paypal");
+                        setError(null);
+                      }}
+                      className={cn(
+                        "flex h-11 items-center justify-center gap-2 rounded-xl border px-2 text-sm font-semibold transition-colors",
+                        usingPaypal
+                          ? "border-principale bg-indigo-clair text-principale"
+                          : "border-gris bg-white text-navy/70 hover:bg-indigo-clair/50",
+                      )}
+                    >
+                      PayPal
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ) : null}
 
-            {!usingCard ? (
+            {!usingCard && !usingPaypal ? (
               <>
             <div>
               <Label>Opérateur</Label>
@@ -635,10 +689,14 @@ export function MobileMoneyCheckout({
               {submitting
                 ? usingCard
                   ? "Préparation du paiement…"
-                  : "Envoi de la demande…"
+                  : usingPaypal
+                    ? "Préparation PayPal…"
+                    : "Envoi de la demande…"
                 : usingCard
                   ? `Payer ${formatFcfa(price)} par carte`
-                  : `Payer ${formatFcfa(price)}`}
+                  : usingPaypal
+                    ? `Payer ${formatFcfa(price)} avec PayPal`
+                    : `Payer ${formatFcfa(price)}`}
             </Button>
           </form>
         ) : null}
@@ -682,6 +740,25 @@ export function MobileMoneyCheckout({
             </Button>
           </div>
         ) : null}
+
+        {step === "paypal" && payment && (payment.paypal_order_id || payment.provider === "paypal") ? (
+          <PayPalCheckout
+            clientId={payment.paypal_client_id || config.paypal_client_id || ""}
+            mode={payment.paypal_mode || config.paypal_mode || "sandbox"}
+            orderId={String(payment.paypal_order_id || "")}
+            reference={payment.reference}
+            amount={payment.amount}
+            paypalAmount={payment.paypal_amount}
+            paypalCurrency={payment.paypal_currency || config.paypal_currency || "USD"}
+            cancelling={cancelling}
+            onCancel={() => void onCancel()}
+            onSuccess={(next, user) => {
+              setPayment(next);
+              void finish(next, user);
+            }}
+          />
+        ) : null}
+
 
         {pending && payment ? (
           <div className="space-y-4">

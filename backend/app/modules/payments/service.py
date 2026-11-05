@@ -1,4 +1,4 @@
-"""Souscriptions payantes via MeSomb : création, suivi, activation et expiration du plan."""
+﻿"""Souscriptions payantes via MeSomb : création, suivi, activation et expiration du plan."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.modules.payments.keypay import KeyPayError, keypay
+from app.modules.payments.paypal import PayPalError, paypal
 from app.modules.payments.mesomb import (
     MeSombError,
     assert_country_enabled,
@@ -82,8 +83,13 @@ def payment_config() -> dict[str, Any]:
     return {
         "enabled": settings.mesomb_enabled,
         "card_enabled": settings.keypay_enabled,
+        "paypal_enabled": settings.paypal_enabled,
         "provider": "mesomb",
         "card_provider": "keypay",
+        "paypal_provider": "paypal",
+        "paypal_client_id": settings.paypal_client_id if settings.paypal_enabled else "",
+        "paypal_mode": (settings.paypal_mode or "sandbox"),
+        "paypal_currency": (settings.paypal_currency or "USD"),
         "currency": settings.mesomb_currency or settings.keypay_currency or "XAF",
         "country": settings.mesomb_country or "CM",
         "countries": [
@@ -121,6 +127,18 @@ def checkout_public_dict(payment: Payment) -> dict[str, Any]:
             payload["client_secret"] = client_secret
         if publishable:
             payload["stripe_publishable_key"] = publishable
+    if payment.provider == "paypal":
+        if settings.paypal_enabled:
+            payload["paypal_client_id"] = settings.paypal_client_id
+            payload["paypal_mode"] = settings.paypal_mode or "sandbox"
+        if isinstance(payment.raw, dict):
+            order_id = payment.raw.get("order_id") or payment.provider_reference
+            if order_id:
+                payload["paypal_order_id"] = order_id
+            if payment.raw.get("paypal_amount"):
+                payload["paypal_amount"] = payment.raw.get("paypal_amount")
+            if payment.raw.get("paypal_currency"):
+                payload["paypal_currency"] = payment.raw.get("paypal_currency")
     return payload
 
 
@@ -151,8 +169,11 @@ def create_checkout(
     months: int,
     method: Optional[str] = None,
 ) -> Payment:
-    if (method or "").strip().upper() == "CARD":
+    method_u = (method or "").strip().upper()
+    if method_u == "CARD":
         return _create_card_checkout(db, user, plan_slug=plan_slug, months=months)
+    if method_u == "PAYPAL":
+        return _create_paypal_checkout(db, user, plan_slug=plan_slug, months=months)
     if not settings.mesomb_enabled:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -416,6 +437,140 @@ def _create_card_checkout(db: Session, user: User, *, plan_slug: str, months: in
             detail={"message": payment.failure_reason, "code": "payment_failed", "payment": payment.to_dict()},
         )
 
+    _apply_result(db, payment, result)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+
+def _paypal_amount_usd(amount_xaf: int) -> str:
+    """Convertit le montant XAF en USD pour PayPal (XAF non supporté)."""
+    rate = float(settings.paypal_xaf_per_usd or 600.0)
+    if rate <= 0:
+        rate = 600.0
+    usd = max(round(float(amount_xaf) / rate, 2), 0.01)
+    return f"{usd:.2f}"
+
+
+def _create_paypal_checkout(db: Session, user: User, *, plan_slug: str, months: int) -> Payment:
+    if not settings.paypal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "message": "Le paiement PayPal n'est pas encore activé. Contactez le support.",
+                "code": "paypal_payments_disabled",
+            },
+        )
+    if months not in ALLOWED_MONTHS:
+        raise HTTPException(status_code=422, detail={"message": "Durée invalide : 1 ou 12 mois."})
+
+    plan = _paid_plan(db, plan_slug)
+    _close_stale_pending(db, user.id)
+
+    amount = price_for(plan, months)
+    paypal_currency = (settings.paypal_currency or "USD").upper()
+    paypal_amount = _paypal_amount_usd(amount)
+
+    payment = Payment(
+        reference=_new_reference(),
+        user_id=user.id,
+        plan_id=plan.id,
+        plan_slug=plan.slug,
+        plan_name=plan.name,
+        months=months,
+        amount=amount,
+        currency=settings.mesomb_currency or settings.keypay_currency or "XAF",
+        provider="paypal",
+        service="PAYPAL",
+        phone="",
+        status=PAYMENT_PENDING,
+        raw={
+            "paypal_amount": paypal_amount,
+            "paypal_currency": paypal_currency,
+            "xaf_per_usd": float(settings.paypal_xaf_per_usd or 600.0),
+        },
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    base = settings.public_app_url or "https://nogalix.avexsolution.com"
+    return_url = f"{base}{settings.paypal_return_path}"
+    cancel_url = f"{base}{settings.paypal_cancel_path}"
+    label = f"{settings.app_name} {plan.name} - {months} mois"
+
+    try:
+        result = paypal.create_order(
+            amount_value=paypal_amount,
+            currency=paypal_currency,
+            reference=payment.reference,
+            description=label,
+            return_url=return_url,
+            cancel_url=cancel_url,
+        )
+    except PayPalError as exc:
+        payment.status = PAYMENT_FAILED
+        payment.failure_reason = exc.message
+        db.commit()
+        raise HTTPException(
+            status_code=exc.status_code if exc.status_code in (503,) else 422,
+            detail={"message": exc.message, "code": "payment_failed", "payment": payment.to_dict()},
+        )
+
+    if not result.get("order_id"):
+        payment.status = PAYMENT_FAILED
+        payment.failure_reason = "PayPal n'a pas renvoyé d'identifiant de commande."
+        payment.raw = {**(payment.raw if isinstance(payment.raw, dict) else {}), "raw": result.get("raw")}
+        db.commit()
+        raise HTTPException(
+            status_code=502,
+            detail={"message": payment.failure_reason, "code": "payment_failed", "payment": payment.to_dict()},
+        )
+
+    # Preserve conversion meta in raw while applying provider fields.
+    meta = dict(payment.raw if isinstance(payment.raw, dict) else {})
+    _apply_result(db, payment, result)
+    raw = dict(payment.raw if isinstance(payment.raw, dict) else {})
+    raw.update({k: v for k, v in meta.items() if k not in raw})
+    raw["order_id"] = result.get("order_id")
+    raw["paypal_amount"] = paypal_amount
+    raw["paypal_currency"] = paypal_currency
+    payment.raw = raw
+    if result.get("order_id") and not payment.provider_reference:
+        payment.provider_reference = str(result["order_id"])
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def capture_paypal_payment(db: Session, payment: Payment) -> Payment:
+    """Capture une commande PayPal déjà approuvée par l'acheteur."""
+    if payment.provider != "paypal":
+        raise HTTPException(status_code=422, detail={"message": "Ce paiement n'est pas un paiement PayPal."})
+    if payment.status == PAYMENT_COMPLETED:
+        return payment
+    if not settings.paypal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"message": "PayPal n'est pas configuré.", "code": "paypal_payments_disabled"},
+        )
+    order_id = payment.provider_reference
+    if isinstance(payment.raw, dict):
+        order_id = payment.raw.get("order_id") or order_id
+    if not order_id:
+        raise HTTPException(status_code=422, detail={"message": "Identifiant de commande PayPal manquant."})
+    try:
+        result = paypal.capture(str(order_id))
+    except PayPalError as exc:
+        # Fallback: maybe already captured — read status
+        try:
+            result = paypal.get_order(str(order_id))
+        except PayPalError:
+            raise HTTPException(
+                status_code=exc.status_code if exc.status_code in (503,) else 422,
+                detail={"message": exc.message, "code": "payment_failed", "payment": payment.to_dict()},
+            )
     _apply_result(db, payment, result)
     db.commit()
     db.refresh(payment)

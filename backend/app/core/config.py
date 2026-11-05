@@ -1,4 +1,4 @@
-from functools import lru_cache
+﻿from functools import lru_cache
 from typing import List
 
 from pydantic import Field
@@ -101,6 +101,17 @@ class Settings(BaseSettings):
     keypay_webhook_url: str = ""
     keypay_currency: str = "XAF"
 
+    # PayPal Checkout (Orders v2) — sandbox pour PayPal AI Hackathon
+    paypal_client_id: str = ""
+    paypal_client_secret: str = ""
+    paypal_mode: str = "sandbox"
+    paypal_timeout: int = 60
+    paypal_currency: str = "USD"
+    # Conversion indicative XAF -> USD pour le montant PayPal (XAF non supporté par PayPal).
+    paypal_xaf_per_usd: float = 600.0
+    paypal_return_path: str = "/plans?paypal=return"
+    paypal_cancel_path: str = "/plans?paypal=cancel"
+
     # Stockage privé des documents utilisateurs (lettres, pièces jointes)
     documents_max_bytes: int = 10 * 1024 * 1024
 
@@ -150,6 +161,10 @@ class Settings(BaseSettings):
     @property
     def keypay_enabled(self) -> bool:
         return bool(self.keypay_api_key and self.keypay_api_secret)
+
+    @property
+    def paypal_enabled(self) -> bool:
+        return bool(self.paypal_client_id and self.paypal_client_secret)
 
     @property
     def database_url(self) -> str:

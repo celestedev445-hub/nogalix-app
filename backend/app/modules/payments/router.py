@@ -95,6 +95,12 @@ def checkout(
             if payment.status == "completed"
             else "Saisissez les informations de votre carte pour confirmer le paiement."
         )
+    elif payment.provider == "paypal":
+        message = (
+            "Paiement confirmé."
+            if payment.status == "completed"
+            else "Confirmez le paiement avec PayPal."
+        )
     else:
         message = (
             "Paiement confirmé."
@@ -119,6 +125,23 @@ def show(
     if verify or payment.provider != "mesomb":
         payment = service.refresh_payment(db, payment, recheck_closed=True)
     return {"data": payment.to_dict(), "user": _me_payload(db, user)}
+
+
+@router.post("/payments/{reference}/paypal/capture")
+@limiter.limit("10/minute")
+def paypal_capture(
+    request: Request,
+    reference: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    payment = service.capture_paypal_payment(db, _own_payment(db, user, reference))
+    message = (
+        "Paiement confirmé."
+        if payment.status == "completed"
+        else "Paiement PayPal en cours de confirmation."
+    )
+    return {"message": message, "data": service.checkout_public_dict(payment), "user": _me_payload(db, user)}
 
 
 @router.post("/payments/{reference}/cancel")
