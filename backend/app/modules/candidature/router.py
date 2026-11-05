@@ -1,11 +1,9 @@
-"""Génération candidature ciblée (offre → CV / lettre / checklist)."""
-
-from __future__ import annotations
+﻿"""Génération candidature ciblée (offre → CV / lettre / checklist)."""
 
 import re
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
@@ -280,7 +278,7 @@ def _local_checklist(offer: str, cv: dict[str, Any]) -> dict[str, Any]:
 @limiter.limit("20/minute")
 async def generate_candidature(
     request: Request,
-    body: GenerateRequest,
+    body: Annotated[GenerateRequest, Body()],
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -335,3 +333,4 @@ async def generate_candidature(
         "letter": allows(plan, "documents.letters"),
     }
     return {"message": "Candidature générée", "data": result}
+
